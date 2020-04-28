@@ -17,3 +17,10 @@ As a stand-alone, general spatial matching methodology, it could be easily added
 approaches whose output is a ranked list of candidates. The proposed two-stage pipeline is also improved through extensive 
 optimization of hyperparameters and by the implementation of a frame-based temporal filter that takes into account past 
 recognition results.
+
+This system is summarized in the following diagram:
+<p align="center">
+  <img src="images/SSM_workflow.png" width="80%"/>
+  <br /><em>System's flowchart</em>
+</p>
+
