@@ -24,3 +24,19 @@ This system is summarized in the following diagram:
   <br /><em>System's flowchart</em>
 </p>
 
+
+## Citation
+
+Please consider citing the corresponding publication if you use this work:
+```
+@article{camara2020spatialmatching,
+  title={Visual Place Recognition by Spatial Matching of High-level CNN Features},
+  author={Camara, Luis G.  and  P\v{r}eu\v{c}il, Libor},
+  journal={Robotics and Autonomous Systems, accepted for publication},
+  volume={},
+  number={},
+  pages={},
+  year={2020},
+  publisher={Elsevier}
+}
+```
