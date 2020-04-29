@@ -16,13 +16,13 @@ This system is summarized in the following diagram:
 </p>
 
 ## User interface
-The system can be tested by using a very simplistic interface that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances between the two. The figure below shows an screenshot of the interface.
+The system can be tested by using a (currently under development) interface that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances of the query sequence. The figure below shows an screenshot of the interface.
 <p align="center">
   <img src="images/interface.png" width="80%"/>
   <br /><em>System's flowchart</em>
 </p>
 
-File names are expected in the format imageXXXXX.png or imageXXXXX.jpg  
+The datasets to be tested are expected to consist of query and reference image sequences, both belonging to the same route but most likely recorded at dierent times and under changing conditions. File names in sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns where each row associates each live query identifier to its reference ground truth. 
 
 ## Citation
 
