@@ -23,7 +23,7 @@ The system, as implemented in the paper referenced in the citain section,  can b
 </p>
 
 The functionality of the different panels in the interface are as follows:
-- STAGE I: Sets the image size employed during the image database filtering stage of the pipline (default is optimum for the datasets used in our paper). The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) architecture, whose python implementation can be found [here](https://github.com/uzh-rpg/netvlad_tf_open).   
+- STAGE I: Sets the image size employed during the image database filtering stage of the pipline (default is optimum for the datasets used in our paper, see citation section). The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) architecture, whose python implementation can be found [here](https://github.com/uzh-rpg/netvlad_tf_open).   
 - STAGE II: Allows selecting the image size during the spatial matching stage of the pipeline. Parameters such as the number of candidates considered from stage I or the frame tolerance can also be set. Information is provided by placcing the mouse cursor over each parameter.
 - Select Files: Used to load directories for reference and test (aka query or live) sequences. Also for loading the ground truth csv file  
 - Run: Used to either create database of descriptors from the reference sequence or to start recognition using the test sequence. 
@@ -31,7 +31,20 @@ The functionality of the different panels in the interface are as follows:
 - Visualization: It shows query, recognized and assigned reference ground truth images
 - Console: Present recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
 
-
+## Running the code
+### Creating descriptor databases
+Once the GUI is loaded, first thing is to create a database from the reference sequence of the dataset of choice. 
+1. Go to __Select file -> Reference dir__ and find and select the corresponding sequence directory. 
+2. Then press __Run -> Create db__ to start creating the database
+Progress is will be displayed on the console console panel
+A different database will be created for each reference sequence and set of parameters in the GUI. They are stored on disk (in /db) and therefore only need to be created once. They will be automatically detected next time their used is required.
+### Running place recognition 
+After descriptors are created and stored to disk, a query sequence can be tested by
+1. Go to __Select files -> Test dir__ and find and select the test sequence directory
+2. Go to __Select files -> Ground truth__ and find and select the GroundTruth.csv file for the current dataset
+3. Press the __Run -> Recognition__ button
+### Controls
+During recognition, the __Control__ buttons can be pressed at any time to pause, resume or finalize recognition. 
 
 ## File format
 It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where each row associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the closest selected as the guess location of the query. The ground truth is then used to evaluate whether the guess file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
