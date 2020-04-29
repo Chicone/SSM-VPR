@@ -41,7 +41,7 @@ To start the GUI, cd from the command line into the project's main directory and
 python3 ssmapp.py
 ```
 ## Datasets
-If you want to reproduce the results of our paper "Visual Place Recognition by Spatial Matching of High-level CNN Features", the emplyed image datasets can be downloaded from [here]().  
+If you want to reproduce the results of our paper "Visual Place Recognition by Spatial Matching of High-level CNN Features", the employed image datasets can be downloaded from [here](http://imr.ciirc.cvut.cz/Datasets/Ssm-vpr).  
 
 
 ## Running the code
