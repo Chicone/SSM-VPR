@@ -30,7 +30,7 @@ The functionality of the different panels in the GUI are as follows:
 - Run: Used to either create database of descriptors from the reference sequence or to start recognition using the test sequence. 
 - Controls: Allows to pause, resume or stop recognition
 - Visualization: It shows query, recognized and assigned reference ground truth images
-- Console: Presents recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
+- Console: Presents recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel. It is therefore possible to navigate through all past recognitions and to visually check the output.
 
 ## Installation
 The code has been tested on Ubuntu 18.04 Bionic and Python 3.6.6.
