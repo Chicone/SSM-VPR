@@ -24,8 +24,8 @@ The system, implemented as in the paper referenced in the citation section,  can
 </p>
 
 The functionality of the different panels in the GUI are as follows:
-- STAGE I: Sets the image size employed during the image database filtering stage of the pipline (default is optimum for the datasets used in our paper, see citation section). The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) architecture, whose python implementation can be found [here](https://github.com/uzh-rpg/netvlad_tf_open).   
-- STAGE II: Allows selecting the image size during the spatial matching stage of the pipeline. Parameters such as the number of candidates considered from stage I or the frame tolerance can also be set. Information is provided by placcing the mouse cursor over each parameter.
+- STAGE I: Sets the image size employed during the *image database filtering stage* of the pipline (default is optimum for the datasets used in our paper, see citation section). The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) architecture, whose python implementation can be found [here](https://github.com/uzh-rpg/netvlad_tf_open).   
+- STAGE II: Allows selecting the image size during the *spatial matching stage* of the pipeline. Parameters such as the number of candidates considered from stage I or the frame tolerance can also be set. Information is provided by placcing the mouse cursor over each parameter.
 - Select Files: Used to load directories for reference and test (aka query or live) sequences. Also for loading the ground truth csv file  
 - Run: Used to either create database of descriptors from the reference sequence or to start recognition using the test sequence. 
 - Controls: Allows to pause, resume or stop recognition
