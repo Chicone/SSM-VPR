@@ -16,11 +16,22 @@ This system is summarized in the following diagram:
 </p>
 
 ## User interface
-The system can be tested by using a (currently under development) interface that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances of the query sequence. The figure below shows an screenshot of the interface.
+The system, as implemented in the paper referenced in the citain section,  can be tested by using a (currently under development) interface that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances of the query sequence. The figure below shows an screenshot of the interface.
 <p align="center">
   <img src="images/interface.png" width="80%"/>
   <br /><em>System's flowchart</em>
 </p>
+
+The functionality of the different panels in the interface are as follows:
+- STAGE I: Sets the image size employed during the image database filetering stage of the pipline. The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) methodology pre-trained on the Pittsburg 30k dataset.   
+- STAGE II:
+- Select File:
+- Run:
+- Controls:
+- Visualization:
+- Console:
+
+
 
 ## File format
 It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where each row associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the closest selected as the guess location of the query. The ground truth is then used to evaluate whether the guess file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
