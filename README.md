@@ -49,22 +49,21 @@ If you want to reproduce the main results of our paper "Visual Place Recognition
 ### Creating descriptors databases
 Once the GUI is loaded, first thing is to create a database from the reference sequence of the dataset of choice. 
 1. Go to __Select file -> Reference dir__ and find and select the corresponding sequence directory. 
-2. Then press __Run -> Create db__ to start creating the database
-Progress is will be displayed on the console console panel
-A different database will be created for each reference sequence and set of parameters in the GUI. They are stored on disk (in /db) and therefore only need to be created once. They will be automatically detected next time their used is required.
+2. Then press __Run -> Create db__ to start creating the database. Progress will be displayed on the console panel.
+A different database is created for each reference sequence and set of parameters in the GUI. They are stored on disk (in /db) and therefore only need to be created once. They are automatically detected next time their used is required.
 ### Running place recognition 
-After descriptors are created and stored to disk, a query sequence can be tested by
-1. Go to __Select files -> Test dir__ and find and select the test sequence directory
-2. Go to __Select files -> Ground truth__ and find and select the GroundTruth.csv file for the current dataset
-3. Press the __Run -> Recognition__ button
+After descriptors have been created and stored to disk, a query sequence can be tested by going to 
+1. __Select files -> Test dir__ and find and select the test sequence directory
+2. __Select files -> Ground truth__ and find and select the GroundTruth.csv file for the current dataset
+3. Presssing the __Run -> Recognition__ button
 ### Controls
 During recognition, the __Control__ buttons can be pressed at any time to pause, resume or finalize recognition. 
 
 ## File format
-It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where rows associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the most similar selected as the guess location of the query. The ground truth file is then used to evaluate whether the guessed file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
+It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image0001.png, image0002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where rows associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the most similar selected as the  location of the query. The ground truth file is then used to evaluate whether the guessed file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
 
 ## Testing your own datasets
-The format of any used dataset must meet the requirements explained in the __File format__ section. If you wish to test your own datasets, you must put your sequences into Reference and Live directories within your dataset directory and name the files as explained above. You must also create a __Groundtruth.csv__ file that associates Live images with Reference ground truth images, either by manually annotating the image pairs or by using some other means such as GPS information.
+The format of any used dataset must meet the requirements explained in the __File format__ section. If you wish to test your own datasets, you must put your sequences into Reference and Live directories within your dataset directory and name the files as explained above. You must also create a __Groundtruth.csv__ file that associates Live images with Reference ground truth images, either by manually parsing and annotating image pairs or by using some other means such as GPS information.
 
 ## Citation
 
