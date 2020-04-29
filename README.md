@@ -16,7 +16,7 @@ This system is summarized in the following diagram:
 </p>
 
 ## Graphical user interface
-The system, as implemented in the paper referenced in the citain section,  can be tested by using a (currently under development) GUI that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances of the query sequence. The figure below shows an screenshot of the interface.
+The system, implemented as in the paper referenced in the citation section,  can be tested by using a (currently under development) GUI that allows loading of reference and query sequences of images as well as a file containing the ground truth correspondances of the query sequence. The figure below shows an screenshot of the interface.
 <p align="center">
   <img src="images/interface.png" width="80%"/>
   <br /><em>Screenshot of the graphical user interface</em>
