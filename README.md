@@ -49,6 +49,12 @@ During recognition, the __Control__ buttons can be pressed at any time to pause,
 ## File format
 It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where each row associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the closest selected as the guess location of the query. The ground truth is then used to evaluate whether the guess file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
 
+## Installation
+The code has been tested on Ubuntu 18.04 and Python 3.6.6
+For installation just download or clone the directory structure. Installation of the following libraries and possibly others may be necessary:    
+  __csv, cv2, keras, numpy, PyQt5, random, sklearn, tensorflow, time__ 
+
+
 ## Citation
 
 Please consider citing the corresponding publication if you use this work:
