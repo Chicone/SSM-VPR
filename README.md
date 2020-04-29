@@ -45,7 +45,7 @@ If you want to reproduce the results of our paper "Visual Place Recognition by S
 
 
 ## Running the code
-### Creating descriptor databases
+### Creating descriptors databases
 Once the GUI is loaded, first thing is to create a database from the reference sequence of the dataset of choice. 
 1. Go to __Select file -> Reference dir__ and find and select the corresponding sequence directory. 
 2. Then press __Run -> Create db__ to start creating the database
