@@ -23,7 +23,7 @@ The system, as implemented in the paper referenced in the citain section,  can b
 </p>
 
 The functionality of the different panels in the interface are as follows:
-- STAGE I: Sets the image size employed during the image database filetering stage of the pipline. The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) methodology pre-trained on the Pittsburg 30k dataset.   
+- STAGE I: Sets the image size employed during the image database filetering stage of the pipline. The filtering method can also be selected. Currently there are only two options: (1) our original implementation based on layer conv_5_2 of the VGG16 architecture and (2) the [NetVLAD](https://arxiv.org/abs/1511.07247) architecture, whose python implementation can be found [here](https://github.com/uzh-rpg/netvlad_tf_open).   
 - STAGE II:
 - Select File:
 - Run:
