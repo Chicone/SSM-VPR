@@ -29,7 +29,7 @@ The functionality of the different panels in the interface are as follows:
 - Run: Used to either create database of descriptors from the reference sequence or to start recognition using the test sequence. 
 - Controls: Allows to pause, resume or stop recognition
 - Visualization: It shows query, recognized and assigned reference ground truth images
-- Console: Present recognition output and metrics such as precision, recall or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
+- Console: Present recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
 
 
 
