@@ -31,6 +31,16 @@ The functionality of the different panels in the interface are as follows:
 - Visualization: It shows query, recognized and assigned reference ground truth images
 - Console: Present recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
 
+## Installation
+The code has been tested on Ubuntu 18.04 Nionic and Python 3.6.6.
+For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
+  __csv, cv2, keras, numpy, PyQt5, random, sklearn, tensorflow, time__ 
+
+To start the GUI, cd from the command line into the project's main directory and type 
+```bash
+python3 ssmapp.py
+```
+
 ## Running the code
 ### Creating descriptor databases
 Once the GUI is loaded, first thing is to create a database from the reference sequence of the dataset of choice. 
@@ -47,17 +57,10 @@ After descriptors are created and stored to disk, a query sequence can be tested
 During recognition, the __Control__ buttons can be pressed at any time to pause, resume or finalize recognition. 
 
 ## File format
-It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where each row associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the closest selected as the guess location of the query. The ground truth is then used to evaluate whether the guess file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
+It is expected that the datasets to be tested consist of query and reference image sequences, both belonging to the same route but most likely recorded at different times and under changing conditions and different viewpoints. File names in the sequences are expected in the format imageXXXXX.png or imageXXXXX.jpg, where XXXXX is a unique identifier number that increases as the sequences progress in time (e.g. image00001.png, image00002.png, etc.). The ground truth file (GroundTruth.csv) is a spreadsheet containing "Reference" and "Live" columns, where rows associates each live query identifier to its reference ground truth. During recognition, each query image is compared with all reference images and the most similar selected as the guess location of the query. The ground truth file is then used to evaluate whether the guessed file is a true positive or not. A frame tolerance can be set in the interface to make the evaluation more or less strict.
 
-## Installation
-The code has been tested on Ubuntu 18.04 Nionic and Python 3.6.6.
-For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
-  __csv, cv2, keras, numpy, PyQt5, random, sklearn, tensorflow, time__ 
-
-To start the GUI, cd from the command line into the project's main directory and type 
-```bash
-python3 ssmapp.py
-```
+## Testing your own datasets
+The format of any used dataset must meet the requirements explained in the __File format__ section. If you wish to test your own datasets, you must put your sequences into Reference and Live directories within your dataset directory and name the files as explained above. You must also create a __Groundtruth.csv__ file that associates Live images with Reference ground truth images, either by manually annotating the image pairs or by using some other means such as GPS information.
 
 ## Citation
 
