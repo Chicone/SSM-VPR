@@ -32,7 +32,7 @@ The functionality of the different panels in the interface are as follows:
 - Console: Present recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel.  
 
 ## Installation
-The code has been tested on Ubuntu 18.04 Nionic and Python 3.6.6.
+The code has been tested on Ubuntu 18.04 Bionic and Python 3.6.6.
 For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
   __csv, cv2, keras, numpy, PyQt5, random, sklearn, tensorflow, time__ 
 
@@ -40,6 +40,9 @@ To start the GUI, cd from the command line into the project's main directory and
 ```bash
 python3 ssmapp.py
 ```
+## Datasets
+If you want to reproduce the results of our paper "Visual Place Recognition by Spatial Matching of High-level CNN Features", the emplyed image datasets can be downloaded from [here]().  
+
 
 ## Running the code
 ### Creating descriptor databases
