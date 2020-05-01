@@ -47,7 +47,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.stage1_groupBox = QtWidgets.QGroupBox(self.centralwidget)
         self.stage1_groupBox.setEnabled(True)
-        self.stage1_groupBox.setGeometry(QtCore.QRect(30, 30, 191, 441))
+        self.stage1_groupBox.setGeometry(QtCore.QRect(30, 30, 191, 351))
         self.stage1_groupBox.setContextMenuPolicy(QtCore.Qt.DefaultContextMenu)
         self.stage1_groupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -64,7 +64,7 @@ class Ui_MainWindow(object):
 "")
         self.stage1_groupBox.setObjectName("stage1_groupBox")
         self.groupBox = QtWidgets.QGroupBox(self.stage1_groupBox)
-        self.groupBox.setGeometry(QtCore.QRect(10, 35, 141, 101))
+        self.groupBox.setGeometry(QtCore.QRect(20, 35, 141, 101))
         self.groupBox.setMaximumSize(QtCore.QSize(160, 16777215))
         self.groupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -99,14 +99,8 @@ class Ui_MainWindow(object):
         self.label_4 = QtWidgets.QLabel(self.groupBox)
         self.label_4.setGeometry(QtCore.QRect(110, 70, 30, 20))
         self.label_4.setObjectName("label_4")
-        self.imageWidthLineEdit_s1.raise_()
-        self.imageHeightLineEdit_s1.raise_()
-        self.label.raise_()
-        self.label_2.raise_()
-        self.label_3.raise_()
-        self.label_4.raise_()
         self.groupBox_2 = QtWidgets.QGroupBox(self.stage1_groupBox)
-        self.groupBox_2.setGeometry(QtCore.QRect(10, 160, 160, 119))
+        self.groupBox_2.setGeometry(QtCore.QRect(20, 160, 141, 181))
         self.groupBox_2.setMaximumSize(QtCore.QSize(160, 16777215))
         self.groupBox_2.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -128,10 +122,10 @@ class Ui_MainWindow(object):
         self.netvladRadioButton.setGeometry(QtCore.QRect(20, 76, 115, 22))
         self.netvladRadioButton.setObjectName("netvladRadioButton")
         self.useGpuCheckBox = QtWidgets.QCheckBox(self.centralwidget)
-        self.useGpuCheckBox.setGeometry(QtCore.QRect(240, 710, 96, 22))
+        self.useGpuCheckBox.setGeometry(QtCore.QRect(250, 690, 96, 22))
         self.useGpuCheckBox.setObjectName("useGpuCheckBox")
         self.groupBox_3 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_3.setGeometry(QtCore.QRect(30, 480, 531, 131))
+        self.groupBox_3.setGeometry(QtCore.QRect(30, 410, 531, 131))
         self.groupBox_3.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -180,7 +174,7 @@ class Ui_MainWindow(object):
         self.groundTruthOkLabel.setText("")
         self.groundTruthOkLabel.setObjectName("groundTruthOkLabel")
         self.groupBox_4 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_4.setGeometry(QtCore.QRect(30, 620, 161, 111))
+        self.groupBox_4.setGeometry(QtCore.QRect(30, 570, 161, 111))
         self.groupBox_4.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -266,7 +260,7 @@ class Ui_MainWindow(object):
         self.referenceImageLabel.setObjectName("referenceImageLabel")
         self.scrollArea_6.setWidget(self.scrollAreaWidgetContents_6)
         self.groupBox_5 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_5.setGeometry(QtCore.QRect(400, 620, 161, 111))
+        self.groupBox_5.setGeometry(QtCore.QRect(400, 570, 161, 111))
         self.groupBox_5.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -288,7 +282,7 @@ class Ui_MainWindow(object):
         self.btnStop.setGeometry(QtCore.QRect(30, 70, 91, 27))
         self.btnStop.setObjectName("btnStop")
         self.stage2_groupBox = QtWidgets.QGroupBox(self.centralwidget)
-        self.stage2_groupBox.setGeometry(QtCore.QRect(240, 30, 321, 441))
+        self.stage2_groupBox.setGeometry(QtCore.QRect(240, 30, 321, 351))
         self.stage2_groupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -304,7 +298,7 @@ class Ui_MainWindow(object):
 "")
         self.stage2_groupBox.setObjectName("stage2_groupBox")
         self.groupBox_10 = QtWidgets.QGroupBox(self.stage2_groupBox)
-        self.groupBox_10.setGeometry(QtCore.QRect(10, 34, 141, 101))
+        self.groupBox_10.setGeometry(QtCore.QRect(20, 34, 141, 101))
         self.groupBox_10.setMaximumSize(QtCore.QSize(160, 16777215))
         self.groupBox_10.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -340,7 +334,7 @@ class Ui_MainWindow(object):
         self.label_13.setGeometry(QtCore.QRect(110, 66, 30, 31))
         self.label_13.setObjectName("label_13")
         self.groupBox_12 = QtWidgets.QGroupBox(self.stage2_groupBox)
-        self.groupBox_12.setGeometry(QtCore.QRect(10, 160, 301, 119))
+        self.groupBox_12.setGeometry(QtCore.QRect(20, 160, 271, 181))
         self.groupBox_12.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -367,27 +361,49 @@ class Ui_MainWindow(object):
         self.label_18.setGeometry(QtCore.QRect(10, 31, 81, 30))
         self.label_18.setObjectName("label_18")
         self.prevFramesLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.prevFramesLineEdit.setGeometry(QtCore.QRect(200, 69, 41, 27))
+        self.prevFramesLineEdit.setGeometry(QtCore.QRect(90, 149, 41, 27))
         self.prevFramesLineEdit.setObjectName("prevFramesLineEdit")
         self.label_5 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_5.setGeometry(QtCore.QRect(170, 69, 21, 31))
+        self.label_5.setGeometry(QtCore.QRect(10, 149, 21, 31))
         self.label_5.setText("FC")
         self.label_5.setObjectName("label_5")
         self.label_6 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_6.setGeometry(QtCore.QRect(250, 70, 61, 31))
+        self.label_6.setGeometry(QtCore.QRect(140, 150, 61, 31))
         self.label_6.setText("frames ")
         self.label_6.setObjectName("label_6")
         self.label_7 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_7.setGeometry(QtCore.QRect(166, 30, 41, 31))
-        self.label_7.setText("( cut")
+        self.label_7.setGeometry(QtCore.QRect(12, 110, 61, 31))
+        self.label_7.setText("Early cut")
         self.label_7.setObjectName("label_7")
         self.earlyCutLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.earlyCutLineEdit.setGeometry(QtCore.QRect(200, 30, 41, 27))
+        self.earlyCutLineEdit.setGeometry(QtCore.QRect(90, 110, 41, 27))
         self.earlyCutLineEdit.setObjectName("earlyCutLineEdit")
         self.label_11 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_11.setGeometry(QtCore.QRect(250, 30, 61, 31))
-        self.label_11.setText("sigma)")
+        self.label_11.setGeometry(QtCore.QRect(140, 110, 61, 31))
+        self.label_11.setText("sigma")
         self.label_11.setObjectName("label_11")
+        self.groupBox_6 = QtWidgets.QGroupBox(self.centralwidget)
+        self.groupBox_6.setGeometry(QtCore.QRect(220, 570, 161, 111))
+        self.groupBox_6.setStyleSheet("QGroupBox {\n"
+"    border: 1px solid gray;\n"
+"    border-radius: 9px;\n"
+"    margin-top: 0.5em;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    left: 3px;\n"
+"    padding: 3 0 3 0;\n"
+"}\n"
+"\n"
+"")
+        self.groupBox_6.setObjectName("groupBox_6")
+        self.btnSaveOutput = QtWidgets.QPushButton(self.groupBox_6)
+        self.btnSaveOutput.setGeometry(QtCore.QRect(30, 30, 91, 27))
+        self.btnSaveOutput.setObjectName("btnSaveOutput")
+        self.btnPRcurves = QtWidgets.QPushButton(self.groupBox_6)
+        self.btnPRcurves.setGeometry(QtCore.QRect(30, 70, 91, 27))
+        self.btnPRcurves.setObjectName("btnPRcurves")
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -436,7 +452,7 @@ class Ui_MainWindow(object):
         self.btnLoadTest.setText(_translate("MainWindow", "Test dir"))
         self.btnLoadGroungTruth.setText(_translate("MainWindow", "Ground truth"))
         self.groupBox_4.setTitle(_translate("MainWindow", "Run"))
-        self.btnCreateDB.setText(_translate("MainWindow", "Create db"))
+        self.btnCreateDB.setText(_translate("MainWindow", "Create DB"))
         self.btnRecognition.setText(_translate("MainWindow", "Recognition"))
         self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
@@ -463,6 +479,9 @@ class Ui_MainWindow(object):
         self.label_18.setText(_translate("MainWindow", "Candidates"))
         self.prevFramesLineEdit.setText(_translate("MainWindow", "2"))
         self.earlyCutLineEdit.setText(_translate("MainWindow", "10"))
+        self.groupBox_6.setTitle(_translate("MainWindow", "Output"))
+        self.btnSaveOutput.setText(_translate("MainWindow", "Save "))
+        self.btnPRcurves.setText(_translate("MainWindow", "PR curves"))
         self.menuAbout.setTitle(_translate("MainWindow", "Help"))
         self.actionOpen.setText(_translate("MainWindow", "Open Video"))
         self.actionSpectrogram.setText(_translate("MainWindow", "Spectrogram"))

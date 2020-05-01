@@ -109,7 +109,7 @@
       <x>30</x>
       <y>30</y>
       <width>191</width>
-      <height>441</height>
+      <height>351</height>
      </rect>
     </property>
     <property name="contextMenuPolicy">
@@ -136,7 +136,7 @@ QGroupBox::title {
     <widget class="QGroupBox" name="groupBox">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>35</y>
        <width>141</width>
        <height>101</height>
@@ -249,21 +249,14 @@ QGroupBox::title {
        <string>px</string>
       </property>
      </widget>
-     <zorder>imageWidthLineEdit_s1</zorder>
-     <zorder>imageHeightLineEdit_s1</zorder>
-     <zorder>label</zorder>
-     <zorder>label_2</zorder>
-     <zorder>label_3</zorder>
-     <zorder>label_4</zorder>
-     <zorder>groupBox_10</zorder>
     </widget>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>160</y>
-       <width>160</width>
-       <height>119</height>
+       <width>141</width>
+       <height>181</height>
       </rect>
      </property>
      <property name="maximumSize">
@@ -320,8 +313,8 @@ QGroupBox::title {
    <widget class="QCheckBox" name="useGpuCheckBox">
     <property name="geometry">
      <rect>
-      <x>240</x>
-      <y>710</y>
+      <x>250</x>
+      <y>690</y>
       <width>96</width>
       <height>22</height>
      </rect>
@@ -334,7 +327,7 @@ QGroupBox::title {
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>480</y>
+      <y>410</y>
       <width>531</width>
       <height>131</height>
      </rect>
@@ -458,7 +451,7 @@ QGroupBox::title {
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>620</y>
+      <y>570</y>
       <width>161</width>
       <height>111</height>
      </rect>
@@ -672,7 +665,7 @@ p, li { white-space: pre-wrap; }
     <property name="geometry">
      <rect>
       <x>400</x>
-      <y>620</y>
+      <y>570</y>
       <width>161</width>
       <height>111</height>
      </rect>
@@ -728,7 +721,7 @@ QGroupBox::title {
       <x>240</x>
       <y>30</y>
       <width>321</width>
-      <height>441</height>
+      <height>351</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -752,7 +745,7 @@ QGroupBox::title {
     <widget class="QGroupBox" name="groupBox_10">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>34</y>
        <width>141</width>
        <height>101</height>
@@ -867,10 +860,10 @@ QGroupBox::title {
     <widget class="QGroupBox" name="groupBox_12">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>160</y>
-       <width>301</width>
-       <height>119</height>
+       <width>271</width>
+       <height>181</height>
       </rect>
      </property>
      <property name="styleSheet">
@@ -945,8 +938,8 @@ QGroupBox::title {
      <widget class="QLineEdit" name="prevFramesLineEdit">
       <property name="geometry">
        <rect>
-        <x>206</x>
-        <y>69</y>
+        <x>90</x>
+        <y>149</y>
         <width>41</width>
         <height>27</height>
        </rect>
@@ -958,8 +951,8 @@ QGroupBox::title {
      <widget class="QLabel" name="label_5">
       <property name="geometry">
        <rect>
-        <x>180</x>
-        <y>69</y>
+        <x>10</x>
+        <y>149</y>
         <width>21</width>
         <height>31</height>
        </rect>
@@ -971,8 +964,8 @@ QGroupBox::title {
      <widget class="QLabel" name="label_6">
       <property name="geometry">
        <rect>
-        <x>250</x>
-        <y>70</y>
+        <x>140</x>
+        <y>150</y>
         <width>61</width>
         <height>31</height>
        </rect>
@@ -984,8 +977,8 @@ QGroupBox::title {
      <widget class="QLabel" name="label_7">
       <property name="geometry">
        <rect>
-        <x>142</x>
-        <y>30</y>
+        <x>12</x>
+        <y>110</y>
         <width>61</width>
         <height>31</height>
        </rect>
@@ -997,21 +990,21 @@ QGroupBox::title {
      <widget class="QLineEdit" name="earlyCutLineEdit">
       <property name="geometry">
        <rect>
-        <x>206</x>
-        <y>30</y>
+        <x>90</x>
+        <y>110</y>
         <width>41</width>
         <height>27</height>
        </rect>
       </property>
       <property name="text">
-       <string>-0.25</string>
+       <string>10</string>
       </property>
      </widget>
      <widget class="QLabel" name="label_11">
       <property name="geometry">
        <rect>
-        <x>250</x>
-        <y>30</y>
+        <x>140</x>
+        <y>110</y>
         <width>61</width>
         <height>31</height>
        </rect>
@@ -1020,6 +1013,60 @@ QGroupBox::title {
        <string notr="true">sigma</string>
       </property>
      </widget>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_6">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>570</y>
+      <width>161</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QGroupBox {
+    border: 1px solid gray;
+    border-radius: 9px;
+    margin-top: 0.5em;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 3px;
+    padding: 3 0 3 0;
+}
+
+</string>
+    </property>
+    <property name="title">
+     <string>Output</string>
+    </property>
+    <widget class="QPushButton" name="btnSaveOutput">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>30</y>
+       <width>91</width>
+       <height>27</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Save </string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="btnPRcurves">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>70</y>
+       <width>91</width>
+       <height>27</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>PR curves</string>
+     </property>
     </widget>
    </widget>
   </widget>

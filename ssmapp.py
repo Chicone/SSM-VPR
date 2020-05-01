@@ -23,7 +23,7 @@ if __name__ == "__main__":
     splash.show()
     time.sleep(0.1)
     app.processEvents()
-    time.sleep(1.)
+    time.sleep(.5)
     # splash.finish(0)
     mySW = ControlMainWindow()
     mySW.show()

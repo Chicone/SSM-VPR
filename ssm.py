@@ -18,6 +18,11 @@ import time
 import about
 import os
 import numpy as np
+import tkinter
+from tkinter import filedialog
+from shutil import copyfile
+from matplotlib import pyplot as plt
+
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -105,6 +110,10 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.btnPause.clicked.connect(self.pause_continue)
         # self.btnContinue.clicked.connect(self.continue_recognition)
         self.btnStop.clicked.connect(self.stop_recognition)
+
+        # output
+        self.btnSaveOutput.clicked.connect(self.save_output)
+        self.btnPRcurves.clicked.connect(self.plot_PR_curves)
 
         # gpu
         self.useGpuCheckBox.clicked.connect(self.use_gpu)
@@ -258,8 +267,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.image_visualize_query(self.test_folder + '/' + dir_fnames[0])
 
     def search_for_file_path_ground_truth(self):
-        import tkinter
-        from tkinter import filedialog
+        # import tkinter
+        # from tkinter import filedialog
 
         # #initiate tinker and hide window
         main_win = tkinter.Tk()
@@ -305,6 +314,154 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.recognition_continued = False
         self.recognition_stopped = False
         self.recognition_paused = False
+
+    def save_output(self):
+        # open file selector
+        # self.ground_truth_file = filedialog.asksaveasfile()
+        # define options for opening
+        options = {}
+        options['defaultextension'] = '.txt'
+        # options['filetypes'] = fileTypes
+        options['initialdir'] = 'output'
+        options['initialfile'] = (self.dataset_name + '_' +  self.method + '-'   # image retrieval method (stage I) \
+                                 + str(self.image_size1[0]) + '_'               # stage I image size \
+                                 + str(self.image_size2[0]) + '_'               # stage II image size \
+                                 + str(self.candidatesLineEdit.text()) + '_'    # number of candidates \
+                                 + str(self.frameTolLineEdit.text()) + '_'      # frame tolerance \
+                                 + str(self.prevFramesLineEdit.text())     )     # number of previous frames considered in FC
+        options['title'] = 'Save default output filename'
+        filename = filedialog.asksaveasfile(mode='w', **options)
+        copyfile('Live_output.txt', filename.name)
+
+    def create_PR_data(self):
+        import csv
+        import numpy as np
+
+        # # read output file
+        # prec_recall_data = self.pr_file
+
+        img_sep = int(self.frameTolLineEdit.text())
+        self.pr_data = []
+        for results in self.pr_file:
+            with open(results) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                data = []
+                for row in csv_reader:
+                    data.append(row)
+
+                min_thresh = np.round(float(min(np.asarray(data)[:, 4])), 1)
+                max_thresh = np.round(float(max(np.asarray(data)[:, 4])), 1)
+
+                pr_data = []
+                for mthresh in np.arange(min_thresh, max_thresh, 0.05):
+
+                    tpcnt = 0  # true positive counter
+                    fncnt = 0  # false negative counter
+                    fpcnt = 0  # false positive counter
+                    accuracy = 0
+                    precision = 0
+                    recall = 0
+                    for r in range(len(data)):
+                        file = int(data[r][2])
+                        img_no = int(data[r][3])
+                        thresh = float(data[r][4])
+
+                        if thresh < mthresh:
+                            file = -1
+
+                        if file == -1:
+                            fncnt += 1
+                            color = '\033[91m'
+                            if tpcnt > 0:
+                                precision = tpcnt / float(tpcnt + fpcnt)
+                                recall = tpcnt / float(tpcnt + fncnt)
+                                # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
+                                #                                            str(np.round(precision * 100, 1)),
+                                #                                            str(np.round(recall * 100, 1))))
+                        elif np.abs(file - img_no) <= img_sep:  # recognised (true positives)
+                            tpcnt += 1
+                            color = '\033[92m'
+                            precision = tpcnt / float(tpcnt + fpcnt)
+                            recall = tpcnt / float(tpcnt + fncnt)
+                            # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
+                            #                                            str(np.round(precision * 100, 1)),
+                            #                                            str(np.round(recall * 100, 1))))
+                        else:  # wrongly recognised (false positive)
+                            fpcnt += 1
+                            color = '\033[91m'
+                            if tpcnt > 0:
+                                precision = tpcnt / float(tpcnt + fpcnt)
+                                recall = tpcnt / float(tpcnt + fncnt)
+                            # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
+                            #                                            str(np.round(precision * 100, 1)),
+                            #                                            str(np.round(recall * 100, 1))))
+
+                    pr_data.append([np.round(precision * 100, 1) , np.round(recall * 100, 1), np.round(mthresh, 2)])
+                    # print(str(np.round(precision * 100, 1)) + "," + str(np.round(recall * 100, 1)) + "," + str(np.round(mthresh, 2)) )
+                self.pr_data.append(pr_data)
+
+    def compute_auc(self, data):
+        """Area under the curve for Precision-Recall curves"""
+        auc = 0
+        for i in range(1, len(data)):
+            delta_rec = np.abs(data[i, 1] - data[i - 1, 1])
+            mid_prec = (data[i, 0] + data[i - 1, 0]) / 2.
+            auc += delta_rec * mid_prec
+            if i == len(data) - 1:
+                if data[i, 1] != 0:
+                    auc = auc + data[i, 1]
+        return auc
+
+    def plot_PR_curves(self):
+
+        # initiate tinker and hide window
+        main_win = tkinter.Tk()
+        main_win.withdraw()
+
+        # open file selector
+        self.pr_file = filedialog.askopenfilenames(parent=main_win, initialdir="output", title='Please select results file. You can select more than one')
+
+        # close window after selection
+        main_win.destroy()
+
+        # get Precision-Recall data generated from output file
+        self.create_PR_data()
+        # auc = compute_auc(data / 100);
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, sharey=True)
+        fig.add_subplot(111, frameon=False)
+        # props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        # fig.set_size_inches(12.81, 6.3)
+
+        cnt = 0
+        for pr_data in self.pr_data:
+            _pr_data = np.asarray(pr_data)
+            precision = _pr_data[:, 0]  # / 100.
+            recall = _pr_data[:,1] #/ 100.
+            auc = self.compute_auc(_pr_data / 100);
+            ax.plot(recall, precision, linestyle='solid', linewidth=3,label=os.path.splitext(os.path.basename(self.pr_file[cnt]))[0] +
+                          '(AUC=' + str(np.round(auc, 3))  + ')' )
+            cnt += 1
+
+        ax.grid(True, linestyle='dotted')
+        # ax.text(0.6, 0.1, "day-left vs. night-right", fontsize=14, bbox=props, transform=ax.transAxes)
+        ax.legend(fontsize=16, loc='lower left')
+        ax.set_yticks([0.0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+        ax.tick_params(axis='both', which='major', labelsize=12)
+
+        plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        plt.grid(False)
+        plt.xlabel("Recall ($\%$)", fontsize=16)
+        plt.ylabel("Precision ($\%$)", fontsize=16)
+        plt.title("Precision-Recall curves", fontsize=18)
+        fig.subplots_adjust(bottom=0.2, top=0.9, left=0.1, right=0.97)
+
+        ax.set_xlim(0, 100)
+        ax.set_ylim(0.0, 100)
+        plt.show()
+        plt.pause(0.01)
+
+
 
     def use_gpu(self):
         if self.useGpuCheckBox.checkState() == 0:
@@ -1166,8 +1323,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
             return 0
 
-
-
         if self.method == 'NetVLAD':
             pass
         elif self.method == 'VGG16':
@@ -1189,7 +1344,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.model2 = Model(vgg16.input, vgg16.get_layer(self.model2_name).output)
 
 
-        output = open(self.dataset + "_output.txt", "a")
+        output = open(self.dataset + "_output.txt", "w")
         if self.cfg['video']['onscreen'] == True:
             self.show_recog()
         video_array = []
