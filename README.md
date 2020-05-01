@@ -35,7 +35,7 @@ The functionality of the different panels in the GUI are as follows:
 ## Installation
 The code has been tested on Ubuntu 18.04 Bionic and Python 3.6.6.
 For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
-  __csv, cv2, keras, numpy, PyQt5, random, sklearn, tensorflow, tkinter, time__ 
+  __csv, cv2, keras, matplotlib, numpy, PyQt5, random, sklearn, tensorflow, tkinter, time__ 
 
 To start the GUI, cd from the command line into the project's main directory and type 
 ```bash
