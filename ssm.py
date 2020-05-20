@@ -758,7 +758,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         pca, pca_geom = self.train_pca(db_array, geom_array, self.ns1, self.ns2)
         return pca, pca_geom, db_array
 
-    def crate_db(self):
+    def create_db(self):
         """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
         in files vectors.npy (stage I) and vectors_local.npy (stage II)"""
 
@@ -781,7 +781,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 pass
         except:
             pass
-
 
         # extract dataset name
         dset_name = os.path.split(os.path.split(self.ref_dir[:-1])[0])[1]
@@ -853,8 +852,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             side_eff = side // 2 - 1
             arr_size = side_eff ** 2
 
-            # side_eff = int(np.ceil(side / 2 - 1))
-            # arr_size = side_eff**2
             geom_array = np.zeros((len(dirb)*arr_size, 4608))
 
             cnt_geom_arr = 0
@@ -889,7 +886,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                         cnt += 1
 
             # Perform pca
-            if self.method == 'NetVLAD':  # if netvlad, do not pca
+            if self.method == 'NetVLAD':  # if NetVLAD, do not perform PCA
                 projection = db_array
             elif self.method == 'VGG16':
                 projection = pca.transform(db_array)
@@ -907,6 +904,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         np.save('db/' + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text(), np.vstack(projection_geom_acc).astype('float32'))
         np.save('db/' + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text(), np.hstack(im_numbers_local_acc))
         self.textBrowser.append('{} '.format("Database of CNN descriptors created"))
+
         return 0
 
     def PrintEvaluation(self, color, index, accuracy, precision, recall, f1, fpath, score, tpi=None, file=None, gt=None):
@@ -993,7 +991,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         QApplication.processEvents()
 
     def baseline_vgg16(self, im, filtered_kernels, im_numbers, nbrs0):
-        """gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
+        """Stage I for the VGG16 implementation.
+        It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
 
         img_hist = np.zeros(self.no_places, float)  # initialise histogram of distances
         img_hist_rep = np.zeros(self.no_places, int)  # initialise histogram of candidates (places)
@@ -1043,7 +1042,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 block_descrip.append(pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(filtered_kernels)), norm='l2', axis=1).flatten())
                 cnt2 += 1
 
-        # pca dimensionality reduction
+        # PCA dimensionality reduction
         block_descrip = np.asarray(self.pca.transform(block_descrip))
 
         # query database to get list of candidates
@@ -1077,11 +1076,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         return candidates, cand_dist, img_hist
 
     def baseline_netvlad(self, im, sess, net_out, image_batch, vectors, im_numbers, nbrs0):
-        # vectors = loadtxt('vectors.out', comments="#", delimiter=",", unpack=False)
-        # im_numbers = loadtxt('image_numbers.out', comments="#", delimiter=",", unpack=False)
-        # nbrs0 = NearestNeighbors(n_neighbors=self.ncand, algorithm='brute').fit(vectors)
-        start0 = time.time()
-        # self.pca_nvlad = load('pca/pca' + str(self.num_dim) + '_' + 'SPED_NetVLAD' + str(10000) + '.joblib')
+        """Stage I for the NetVLAD implementation.
+        It gets the list of candidates (and distances) from IFDB by comparing NetVLAD descriptor of the current query"""
 
         if len(glob.glob(self.dirname + '/*.jpg')) != 0:
             filenames = glob.glob(self.dirname + '/*.jpg')
@@ -1089,27 +1085,16 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             filenames = glob.glob(self.dirname + '/*.png')
 
         filenames.sort()
-        max_hist_avg = 0
         img_hist = np.zeros(self.no_places, float)
         img_hist_rep = np.zeros(self.no_places, int)
-        # im = cv2.resize(im, self.image_size1, interpolation=cv2.INTER_CUBIC)
-        # im = cv2.resize(im, (448, 448), interpolation=cv2.INTER_CUBIC)
         im = cv2.resize(im, self.image_size1, interpolation=cv2.INTER_CUBIC)
         rows, cols, _ = im.shape
-        # rotate frame if necessary and pass it through network
         im = np.expand_dims(im, axis=0)
-#        im = preprocess_input(im)
         descriptor = sess.run(net_out, feed_dict={image_batch: im})
         descriptor = np.asarray(descriptor)
         distances, indices = nbrs0.kneighbors(descriptor)
 
-        # q = self.db.query("select place, distance from (select place,  hash <-> cube(ARRAY" +
-        #              np.array2string(descriptor, separator=', ') +
-        #              ") AS distance from vectors vs ) as x order by distance asc LIMIT 100")
-
-        # if len(q.getresult()) < self.ncand:
         if len(distances[0]) < self.ncand:
-            # self.ncand = len(q.getresult())
             self.ncand = len(distances[0])
 
         for rr in range(self.ncand):  # loop through candidates and accumulate statistics
@@ -1217,7 +1202,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.method = 'NetVLAD'
 
     def create_database(self):
-        """Takes the images in the selected reference directory and creates CNN features db for STAGE I and II"""
+        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
 
         from keras.models import Model
         from vgg16_places_356 import VGG16_Places365
@@ -1233,6 +1218,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
         model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
 
+        # initialize variables
         self.model1 = model1
         self.model1_name = model1_name
         self.ref_dir = self.reference_folder + '/'
@@ -1244,14 +1230,14 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.num_dim2 = 100
         self.ns1 = 5000  # number of samples to train pca for stage I
         self.ns2 = 5000  # number of samples to train pca for stage II
-        self.lblk = 4
-        self.sblk = 1
-        self.batch_size = 450  # set value according to RAM resources
+        self.lblk = 4    # 9x9 (x 512) CNN cubes
+        self.sblk = 1    # 3x3 (x 512) CNN cubes
+        self.batch_size = 200  # set value according to RAM resources
         self.filtered_kernels = np.arange(512)
         self.filtered_kernels_geom = np.arange(512)
         self.max_ncubes = 36
         self.refresh_view()
-        self.crate_db()
+        self.create_db()
 
     def warning_win(self, title, message1, message2):
         msg = QMessageBox()
@@ -1261,8 +1247,45 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         msg.setWindowTitle(title)
         msg.exec_()
 
+    def train_nn(self, arr_size, vectors_query, hg, wg, nbrs_inst):
+        array_geom_query = np.zeros((arr_size, 3, 3, 512))
+
+        # get spatially-aware vectors
+        # # vectorized version
+        # cutmeup_geom = as_strided(vectors_query,
+        #                     shape=(hg - 2 * self.sblk, hg - 2 * self.sblk, 512, 2 * self.sblk + 1, 2 * self.sblk + 1, 512),
+        #                     strides=2 * vectors_query.strides)[:, :, 0, :, :, :]
+        # kk = cutmeup_geom[::2, ::2]
+        # # kkg = pp.normalize(cutmeup_geom.reshape((hg - 2 * self.sblk)**2 * (2 * self.sblk + 1) ** 2, len(filtered_kernels)), norm='l2', axis=1)
+        # kkg2 = kk.reshape(((hg - 2 * self.sblk)//2)**2, (2 * self.sblk + 1) ** 2 * len(filtered_kernels))
+        # array_geom_query = np.asarray(self.pca_geom.transform(kkg2))
+        # nbrs = nbrs_inst.fit(array_geom_query)
+
+        # # loop version
+        # array_geom_query = self.create_query_vectors(hg, wg, vectors_query, array_geom_query, arr_size)
+
+        # cython version
+        # array_geom_query = create_query_vectors_cython(hg, wg, vectors_query, array_geom_query, self.sblk, arr_size, self.pca_geom)
+
+        cnt = 0
+        for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
+            for cgjj in range(self.sblk, wg - self.sblk, 2):
+                if cnt == arr_size:
+                    break
+                center = (cgii, cgjj)
+                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+                array_geom_query[cnt] = block_geom_query
+                cnt += 1
+
+        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
+
+        # train nearest neighbour for query
+        nbrs = nbrs_inst.fit(array_geom_query)
+
+        return nbrs, array_geom_query
+
     def recognise_places(self):
-        """performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
+        """Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
 
         self.reset_controls()
         self.refresh_view()
@@ -1275,7 +1298,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         from numpy import loadtxt
         from joblib import dump, load
 
-
         # load pre-trained network model
         model = VGG16_Places365(weights='places', include_top=False)
 
@@ -1287,34 +1309,21 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
         model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
 
-        # load parameters from config file
-        my_path = pathlib.Path(__file__).resolve()
-        config_path = my_path.parent / 'config.yaml'
-        with open(config_path, 'r') as ymlfile:
-            self.cfg = yaml.load(ymlfile)
-
         self.ncand = int(self.candidatesLineEdit.text())
         self.lblk = 4
-        # self.lblk = (img_size1 // 16 // 2 - 1) // 2
         self.sblk = 1
         self.model1 = model1
         self.model1_name = model1_name
         self.dirname = dirname
         self.model2 = model2
         self.model2_name = model2_name
-        # self.ftol = self.cfg['ftol']
-        # self.ftol = int(self.frameTolLineEdit.text())
         self.image_size1 = (int(self.imageWidthLineEdit_s1.text()), int(self.imageHeightLineEdit_s1.text()))
         self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
-        self.max_ncubes = 36       # number of CNN cubes used in stage I
-        # self.max_ncubes = 6       # number of CNN cubes used in stage I
+        self.max_ncubes = 36        # number of CNN cubes used in stage I
         self.cp = 0.4               # experimental frame correlation factor
-#        self.npf = 2                # number of previously recognised places considered when exploiting frame correlation
-        # self.spatch = 9
-        self.spatch = 19
+        self.spatch = 19            # number of activations per side of the patch in stage II
         self.dataset = os.path.split(os.path.split(self.dirname)[00])[1]    # dataset name
         self.dataset_name = os.path.split(os.path.split(self.test_folder)[0])[1]
-
 
         # read ground truth from csv file
         try:
@@ -1330,28 +1339,17 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         except:
             self.warning_win('Warning', 'Ground truth csv file not found', 'Please load file first')
             return 0
-
         try:
-            # vectors = np.load('db/vectors.npy')
             vectors = np.load('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
             nbrs0 = NearestNeighbors(n_neighbors=self.ncand, algorithm='brute').fit(vectors)  # brute  ball_tree  kd_tree  auto
-
-            # im_numbers = loadtxt('db/image_numbers.out', comments="#", delimiter=",", unpack=False)
-            # im_numbers = loadtxt('db/stage1_imgnum_' + self.dataset_name + '_'  + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.out',
-            #                      comments="#", delimiter=",", unpack=False)
             im_numbers = np.load('db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
             self.no_places = int(np.max(im_numbers)) + 1
         except:
             self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
             return 0
 
-
         try:
-            # self.vectors_local = np.load('db/vectors_local.npy')
             self.vectors_local = np.load('db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
-            # self.image_numbers_local = loadtxt('db/image_numbers_local.out', comments="#", delimiter=",", unpack=False)
-            # self.image_numbers_local = loadtxt('db/stage2_imgnum_' + self.dataset_name + '_'  + self.imageWidthLineEdit_s2.text() + '.out'
-            #                                    , comments="#", delimiter=",", unpack=False)
             self.image_numbers_local = np.load('db/' + self.dataset_name + '_stage2_imgnum_'  + self.imageWidthLineEdit_s2.text() + '.npy')
         except:
             self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
@@ -1360,7 +1358,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         if self.method == 'NetVLAD':
             pass
         elif self.method == 'VGG16':
-            # self.pca = load('pca/pca' + '_' + 'stage1.joblib')
             self.pca = load('pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_VGG16.joblib')
 
         self.pca_geom = load('pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_VGG16.joblib')
@@ -1377,11 +1374,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             vgg16 = VGG16_Places365(weights='places', include_top=False)
             self.model2 = Model(vgg16.input, vgg16.get_layer(self.model2_name).output)
 
-
+        # write results to output file
         output = open(self.dataset + "_output.txt", "w")
-        if self.cfg['video']['onscreen'] == True:
-            self.show_recog()
-        video_array = []
+
         tpcnt = 0  # true positive counter
         fncnt = 0  # false negative counter
         fpcnt = 0  # false positive counter
@@ -1424,7 +1419,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             filtered_kernels = np.arange(512)
             filtered_kernels_geom = np.arange(512)
 
-            # call method for image filtering
+            # call method for image filtering (stage I)
             if self.method == 'NetVLAD':
                 candidates, cand_dist, img_hist = self.baseline_netvlad(im, sess, net_out, image_batch, vectors, im_numbers, nbrs0)
             elif self.method == 'VGG16':
@@ -1449,58 +1444,25 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
             # declare k-NN model
             nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
+
             scores_hist = np.zeros(self.no_places, float)
-            seen_score = 0
             min_dist = np.zeros(self.no_places, float)
             min_dist[min_dist == 0] = 1E6
             self.blocks_per_side = side_eff
             nlr = self.spatch // 2
 
-            # get maximum score used to calculate score percentage
+            # get maximum recognition score (as for identical images), which is used to calculate score percentage
             if i == 0:
                 indices0 = np.arange(arr_size).reshape((self.blocks_per_side, self.blocks_per_side))
                 same_img_score = self.get_score_patch(indices0, nlr)
 
+            # train nearest neighbor for current query
+            nbrs, array_geom_query = self.train_nn(arr_size, vectors_query, hg, wg, nbrs_inst)
+
             # loop over image filtering candidates
             for c in range(0, self.ncand, 1):
-            # for c in range(0, self.ncand, 10):
                  cand = candidates[c]
                  array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
-
-                 if c == 0:  # only need to train nearest neighbour once
-                     array_geom_query = np.zeros((arr_size, 3, 3, 512))
-
-                     # get spatially-aware vectors
-                     # # vectorized version
-                     # cutmeup_geom = as_strided(vectors_query,
-                     #                     shape=(hg - 2 * self.sblk, hg - 2 * self.sblk, 512, 2 * self.sblk + 1, 2 * self.sblk + 1, 512),
-                     #                     strides=2 * vectors_query.strides)[:, :, 0, :, :, :]
-                     # kk = cutmeup_geom[::2, ::2]
-                     # # kkg = pp.normalize(cutmeup_geom.reshape((hg - 2 * self.sblk)**2 * (2 * self.sblk + 1) ** 2, len(filtered_kernels)), norm='l2', axis=1)
-                     # kkg2 = kk.reshape(((hg - 2 * self.sblk)//2)**2, (2 * self.sblk + 1) ** 2 * len(filtered_kernels))
-                     # array_geom_query = np.asarray(self.pca_geom.transform(kkg2))
-                     # nbrs = nbrs_inst.fit(array_geom_query)
-
-                     # # loop version
-                     # array_geom_query = self.create_query_vectors(hg, wg, vectors_query, array_geom_query, arr_size)
-
-                     # cython version
-                     # array_geom_query = create_query_vectors_cython(hg, wg, vectors_query, array_geom_query, self.sblk, arr_size, self.pca_geom)
-
-                     cnt = 0
-                     for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
-                         for cgjj in range(self.sblk, wg - self.sblk, 2):
-                             if cnt == arr_size:
-                                 break
-                             center = (cgii, cgjj)
-                             block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
-                             array_geom_query[cnt] = block_geom_query
-                             cnt += 1
-
-                     array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
-
-                     # train nearest neighbour for query
-                     nbrs = nbrs_inst.fit(array_geom_query)
 
                  # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
                  distances, indices = nbrs.kneighbors(array_geom_db)
@@ -1508,9 +1470,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
                  # get score for current candidate
                  bdist0 = self.get_score_patch(indices_resh, nlr)
-                 # Cython version
-                 # bdist0 =  get_score_patch(indices_resh, nlr)
-
 
                  # exploit frame correlation
                  wcand = 1
@@ -1548,8 +1507,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             score = np.max(scores_hist)
 
             # uncomment this to calculate steering (used for teach&play navigation based on VPR)
-            # steer = self.get_hor_offset(nbrs_inst, array_geom_query, array_geom_db, 0)
-            steer = self.get_hor_offset_patch(nbrs_inst, array_geom_query, array_geom_db, nlr)
+            # steer = self.get_hor_offset_patch(nbrs_inst, array_geom_query, array_geom_db, nlr)
 #            print(np.round(steer*100, 2), '''%''')
 
             # keep track of previously recognised events
@@ -1566,9 +1524,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 mean_score = np.mean(np.asarray(score_arr))
                 std_score = np.std(np.asarray(score_arr))
             end_imgt = time.time()
-            imgt = np.round((end_imgt - start_imgt), 2)
             time_arr.append(end_imgt - start_imgt)
-            # print(imgt, np.round(np.mean(np.asarray(time_arr)), 2), seen_score)
 
             # visualization
             filenum = int(gt[self.img_no - int(min(im_numbers))])
@@ -1622,22 +1578,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
                     output.write(str(i) + "," +  fpath + "," + str(hit) + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "\n")
 
-            # # initialize plots for results pictures
-            if self.cfg['video']['onscreen'] == True:
-
-                # # show result images
-                self.vis = self.plot_res_pics(fpath, hit, im_numbers, gt[self.img_no - int(min(im_numbers))])
-                self.vis = cv2.resize(self.vis, (1440, 480))
-                video_array.append(self.vis)
-                # cv2.waitKey(0)
             res.append((str(i), hit))
         output.close()
 
-        if self.cfg['video']['onscreen'] == True:
-            out = cv2.VideoWriter('project.mp4', cv2.VideoWriter_fourcc(*'H264'), 1.0, (self.vis.shape[1], self.vis.shape[0]))
-            for i in range(len(video_array)):
-                out.write(video_array[i])
-            out.release()
         end0 = time.time()
 
         color = QtGui.QColor(0,0,0)  # black
@@ -1655,18 +1598,6 @@ class Plot_PR_curves(QRunnable):
 
     # plot_PR_curves
     def run(self):
-
-
-        # initiate tinker and hide window
-#        main_win = tkinter.Tk()
-#        main_win.withdraw()
-
-        # open file selector
-        # self.pr_file = filedialog.askopenfilenames(parent=main_win, initialdir="output", title='Please select results file. You can select more than one')
-#        self.pr_file = filedialog.askopenfilenames(initialdir="output", title='Please select results file. You can select more than one')
-
-#        # close window after selection
-#        main_win.destroy()
 
         # get Precision-Recall data generated from output file
         self.create_PR_data()
@@ -1708,9 +1639,6 @@ class Plot_PR_curves(QRunnable):
     def create_PR_data(self):
         import csv
         import numpy as np
-
-        # # read output file
-        # prec_recall_data = self.pr_file
 
         img_sep = int(self.frameTolLineEdit)
         self.pr_data = []
