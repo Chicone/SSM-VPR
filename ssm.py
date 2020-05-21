@@ -22,10 +22,10 @@ import numpy as np
 import tkinter
 from tkinter import filedialog, Tk, messagebox
 from shutil import copyfile
-import matplotlib
-# matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 
+import torch
+from PIL import Image
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -109,6 +109,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         # run
         self.btnCreateDB.clicked.connect(self.create_database)
+        # self.btnCreateDB.clicked.connect(self.create_database_pt)
         self.btnRecognition.clicked.connect(self.recognise_places)
 
         # controls
@@ -667,11 +668,22 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return pca, pca_geom
 
+    def forward(self, x, conv4_2, conv5_2):
+        results = []
+        for ii, model in enumerate(self.model_pt):
+            x = model(x)
+            if ii in {conv4_2, conv5_2}:
+                results.append(x)
+                if ii == conv5_2:
+                    break
+        return results
+
     def calc_pca(self,  dir_fnames,  dset_name):
         """Calculates the pca models for stages I and II using  self.batch_size random number of images from the reference dataset
         :param list dir_fnames: List of filenames in the reference sequence
         :param : string dset_name: Name of the dataset
         """
+
         vgg16_feature_arr = []
         vgg16_feature_geom_arr = []
         n_imgs = len(dir_fnames)  # number of images
@@ -690,6 +702,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
             fpath = self.ref_dir + fname
 
+#            vgg16_feature_np, vgg16_feature_np_geom = self.get_pytorch_tensors(fpath)
+
+
             # prepare image resolutions
             img_data1 = self.prepare_img(fpath, self.image_size1)  # stage I
             img_data2 = self.prepare_img(fpath, self.image_size2)    # stage II
@@ -700,11 +715,14 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 vgg16_feature = self.model1.predict(img_data1)
                 vgg16_feature_np = np.array(vgg16_feature)
                 vgg16_feature_arr.append(vgg16_feature_np)
+                # vgg16_feature_arr.append(vgg16_feature_np)
 
             # get activations from layer
             vgg16_feature_geom = self.model2.predict(img_data2)
             vgg16_feature_np_geom = np.array(vgg16_feature_geom)
             vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
+            # vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
+
 
         # get features for stage I
         if self.method == 'NetVLAD':
@@ -757,6 +775,186 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # train pca
         pca, pca_geom = self.train_pca(db_array, geom_array, self.ns1, self.ns2)
         return pca, pca_geom, db_array
+
+    def get_pytorch_tensors(self, fpath):
+        """Get pytorch tensors for selected layers in the network"""
+        input_image = Image.open(fpath)
+
+        input_tensor1 = self.preprocess1(input_image)
+        # input_tensor2 = preprocess2(input_image)
+        input_batch1 = input_tensor1.unsqueeze(0)
+        # input_batch2 = input_tensor2.unsqueeze(0)
+
+        # move the input and model to GPU for speed if available
+        if torch.cuda.is_available():
+            input_batch1 = input_batch1.to('cuda')
+            # input_batch2 = input_batch2.to('cuda')
+
+        results = self.forward(input_batch1, 19, 26)  # conv_4-2 and conv_5-2
+
+        if self.method == 'NetVLAD':
+            pass
+        elif self.method == 'VGG16':
+            vgg16_feature_np = results[1].permute(0, 2, 3, 1).detach().cpu().numpy()
+
+        vgg16_feature_np_geom = results[0].permute(0, 2, 3, 1).detach().cpu().numpy()
+
+        return vgg16_feature_np, vgg16_feature_np_geom
+
+    def create_db_pt(self):
+        """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
+        in files vectors.npy (stage I) and vectors_local.npy (stage II)"""
+
+        from joblib import dump, load
+
+        # skip if db already exists
+        self.dataset_name = os.path.split(os.path.split(self.reference_folder)[0])[1]
+        try:
+            f = open('./db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
+            # f = open('./db/stage1_imgnum_'  + self.dataset_name + '_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.out')
+            f = open('./db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
+            self.textBrowser.append('{} '.format("STAGE I: database of descriptors already existed and loaded"))
+            try:
+                f = open('./db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
+                # f = open('./db/stage2_imgnum_'  + self.dataset_name + '_' + self.imageWidthLineEdit_s2.text() +  '.out')
+                f = open('./db/'  + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text() +  '.npy')
+                self.textBrowser.append('{} '.format("STAGE II: database of descriptors already existed and loaded"))
+                return 0
+            except:
+                pass
+        except:
+            pass
+
+        # extract dataset name
+        dset_name = os.path.split(os.path.split(self.ref_dir[:-1])[0])[1]
+
+        # get filenames
+        dir_fnames = [d for d in os.listdir(self.ref_dir)]
+        dir_fnames.sort()
+
+        # number of batches (batches are required due to limited RAM, nothing to do with CNN batches)
+        n_batches = int(np.ceil(len(dir_fnames) / self.batch_size))
+
+        # train and save pca models
+        pca, pca_geom, db_array = self.calc_pca(dir_fnames, dset_name)
+        # pca, pca_geom, db_array = self.calc_pca_pt(dir_fnames, dset_name)
+        if self.method == 'NetVLAD':
+             pass
+        elif self.method == 'VGG16':
+            # dump(pca, 'pca/pca' + '_' + 'stage1.joblib')
+            dump(pca, 'pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_VGG16.joblib')
+
+        # dump(pca_geom, 'pca/pca' + '_' + 'stage2.joblib')
+        dump(pca_geom, 'pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_VGG16.joblib')
+
+        projection_acc = []
+        im_numbers_acc = []
+        im_numbers_local_acc = []
+        projection_geom_acc = []
+        for b in range(n_batches):
+            if b == n_batches - 1:
+                dirb = dir_fnames[b * self.batch_size: len(dir_fnames)]
+            else:
+                dirb = dir_fnames[b * self.batch_size: b*self.batch_size + self.batch_size]
+
+            vgg16_feature_arr = []
+            vgg16_feature_geom_arr = []
+            for idx, fname in enumerate(dirb):
+                if idx % 1 == 0:
+                    print(idx + b * self.batch_size, fname, "calculating activations...")
+                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "calculating activations...")))
+                    QApplication.processEvents()
+
+                fpath = self.ref_dir + fname
+
+                vgg16_feature_np, vgg16_feature_np_geom = self.get_pytorch_tensors(fpath)
+
+                # # prepare both image resolutions
+                # img_data1 = self.prepare_img(fpath, self.image_size1)
+                # img_data2 = self.prepare_img(fpath, self.image_size2)
+
+                if self.method == 'NetVLAD':
+                     pass
+                elif self.method == 'VGG16':
+                #     vgg16_feature = self.model1.predict(img_data1)
+                #     vgg16_feature_np = np.array(vgg16_feature)
+                #     vgg16_feature_arr.append(vgg16_feature_np)
+                    vgg16_feature_arr.append(vgg16_feature_np)
+
+
+                # vgg16_feature_geom = self.model2.predict(img_data2)
+                # vgg16_feature_np_geom = np.array(vgg16_feature_geom)
+                # vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
+                vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
+
+            if self.method == 'NetVLAD':
+                image_batch, net_out, sess = self.prepare_NetVLAD()
+                db_array, im_numbers = self.add_baseline_netvlad(dirb, sess, net_out, image_batch)
+            elif self.method == 'VGG16':
+                h, w, depth = vgg16_feature_np.shape[1], vgg16_feature_np.shape[2], vgg16_feature_np.shape[3]
+                db_array, im_numbers = self.add_baseline_vgg16(dirb, vgg16_feature_arr, h, w)
+            db_array = np.asarray(db_array)
+
+            # prepare spatial matching arrays
+            side = np.asarray(vgg16_feature_geom_arr).shape[2]
+
+            side_eff = side // 2 - 1
+            arr_size = side_eff ** 2
+
+            geom_array = np.zeros((len(dirb)*arr_size, 4608))
+
+            cnt_geom_arr = 0
+            im_numbers_local = []
+
+            for idx, fname in enumerate(dirb):
+                if idx % 1 == 0:
+                    print(idx + b * self.batch_size, fname, "creating spatial matching features...")
+                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "creating spatial matching features...")))
+                    QApplication.processEvents()
+                img_no = self.get_img_no(fname)
+                vgg16_feature_np_geom = vgg16_feature_geom_arr[idx]
+
+                # normalize along the direction of feature maps
+                filter_sel_geom = pp.normalize(np.moveaxis(vgg16_feature_np_geom[0, :, :, self.filtered_kernels_geom], 0, -1).
+                                               reshape(side*side, 512),  norm='l2', axis=1)
+                filter_sel_geom = filter_sel_geom.reshape((side, side, 512))
+                hg, wg, depthg = vgg16_feature_np_geom.shape[1], vgg16_feature_np_geom.shape[2], vgg16_feature_np_geom.shape[3]
+
+                # create  CNN cubes
+                cnt = 0
+                for cgii in range(self.sblk, hg - self.sblk, 2):
+                    for cgjj in range(self.sblk, wg - self.sblk, 2):
+                        if cnt == arr_size:
+                            break
+                        center = (cgii, cgjj)
+                        block_geom = filter_sel_geom[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]
+                        block_descrip_geom = block_geom.reshape((2 * self.sblk + 1) ** 2, depthg).flatten()
+                        geom_array[cnt_geom_arr] = block_descrip_geom
+                        im_numbers_local.append(img_no)
+                        cnt_geom_arr += 1
+                        cnt += 1
+
+            # Perform pca
+            if self.method == 'NetVLAD':  # if NetVLAD, do not perform PCA
+                projection = db_array
+            elif self.method == 'VGG16':
+                projection = pca.transform(db_array)
+            projection_geom = pca_geom.transform(geom_array)
+
+            # store batches
+            projection_acc.append(projection)
+            im_numbers_acc.append(im_numbers)
+            projection_geom_acc.append(projection_geom)
+            im_numbers_local_acc.append(im_numbers_local)
+
+        # save databases to disk
+        np.save('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method, np.vstack(projection_acc).astype('float32'))
+        np.save('db/' + self.dataset_name + '_stage1_imgnum_'  + self.imageWidthLineEdit_s1.text() + '_' + self.method, np.hstack(im_numbers_acc))
+        np.save('db/' + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text(), np.vstack(projection_geom_acc).astype('float32'))
+        np.save('db/' + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text(), np.hstack(im_numbers_local_acc))
+        self.textBrowser.append('{} '.format("Database of CNN descriptors created"))
+
+        return 0
 
     def create_db(self):
         """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
@@ -823,6 +1021,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
                 fpath = self.ref_dir + fname
 
+#                vgg16_feature_np, vgg16_feature_np_geom = self.get_pytorch_tensors(fpath)
+
                 # prepare both image resolutions
                 img_data1 = self.prepare_img(fpath, self.image_size1)
                 img_data2 = self.prepare_img(fpath, self.image_size2)
@@ -833,10 +1033,12 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     vgg16_feature = self.model1.predict(img_data1)
                     vgg16_feature_np = np.array(vgg16_feature)
                     vgg16_feature_arr.append(vgg16_feature_np)
+                    # vgg16_feature_arr.append(vgg16_feature_np)
 
                 vgg16_feature_geom = self.model2.predict(img_data2)
                 vgg16_feature_np_geom = np.array(vgg16_feature_geom)
                 vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
+                # vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
 
             if self.method == 'NetVLAD':
                 image_batch, net_out, sess = self.prepare_NetVLAD()
@@ -990,7 +1192,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.textBrowser.append(clickable_str)
         QApplication.processEvents()
 
-    def baseline_vgg16(self, im, filtered_kernels, im_numbers, nbrs0):
+    def baseline_vgg16(self, im, filtered_kernels, im_numbers, nbrs0, fpath=None):
         """Stage I for the VGG16 implementation.
         It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
 
@@ -1003,6 +1205,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         im = np.expand_dims(im, axis=0)
         im = preprocess_input(im)
         vgg16_feature = self.model1.predict(im)
+
+#        vgg16_feature, vgg16_feature_geom = self.get_pytorch_tensors(fpath)
 
         h, w, depth = vgg16_feature.shape[1], vgg16_feature.shape[2], vgg16_feature.shape[3]
         filter_sel = np.moveaxis(vgg16_feature[0, :, :, filtered_kernels], 0, -1)
@@ -1201,6 +1405,58 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         elif self.netvladRadioButton.isChecked():
             self.method = 'NetVLAD'
 
+    def create_database_pt(self):
+        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
+
+        from keras.models import Model
+        from vgg16_places_356 import VGG16_Places365
+        # from torchvision import transforms
+        import torchvision.models as models
+        from torchvision import transforms as T
+
+        # load pre-trained network model
+#        model = VGG16_Places365(weights='places', include_top=False)
+#        model_pt = torch.hub.load('pytorch/vision:v0.4.0', 'vgg16_bn', pretrained=True)
+        if torch.cuda.is_available():
+            model_pt = models.vgg16(pretrained=True).features.to("cuda").eval()
+        else:
+            model_pt = models.vgg16(pretrained=True).features.eval()
+#        model_pt.eval()
+        self.model_pt = model_pt
+
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        # preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+
+        use_gpu = self.useGpuCheckBox.checkState()
+
+        # # define the models for each stage
+        # model1_name = 'block5_conv2'
+        # model2_name = 'block4_conv2'
+        # model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
+        # model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
+
+        # initialize variables
+        # self.model1 = model1
+        # self.model1_name = model1_name
+        self.ref_dir = self.reference_folder + '/'
+        # self.model2 = model2
+        # self.model2_name = model2_name
+        self.image_size1 = (224, 224)
+        self.image_size2 = (416, 416)
+        self.num_dim1 = 125
+        self.num_dim2 = 100
+        self.ns1 = 5000  # number of samples to train pca for stage I
+        self.ns2 = 5000  # number of samples to train pca for stage II
+        self.lblk = 4    # 9x9 (x 512) CNN cubes
+        self.sblk = 1    # 3x3 (x 512) CNN cubes
+        self.batch_size = 200  # set value according to RAM resources
+        self.filtered_kernels = np.arange(512)
+        self.filtered_kernels_geom = np.arange(512)
+        self.max_ncubes = 36
+        self.refresh_view()
+        self.create_db()
+        # self.create_db_pt()
+
     def create_database(self):
         """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
 
@@ -1286,6 +1542,17 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
     def recognise_places(self):
         """Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
+        import torchvision.models as models
+        from torchvision import transforms as T
+
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+
+        if torch.cuda.is_available():
+            model_pt = models.vgg16(pretrained=True).features.to("cuda").eval()
+        else:
+            model_pt = models.vgg16(pretrained=True).features.eval()
+        #        model_pt.eval()
+        self.model_pt = model_pt
 
         self.reset_controls()
         self.refresh_view()
@@ -1424,6 +1691,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 candidates, cand_dist, img_hist = self.baseline_netvlad(im, sess, net_out, image_batch, vectors, im_numbers, nbrs0)
             elif self.method == 'VGG16':
                 candidates, cand_dist, img_hist = self.baseline_vgg16(im, filtered_kernels, im_numbers, nbrs0)
+                #candidates, cand_dist, img_hist, vgg16_feature, vgg16_feature_geom = self.baseline_vgg16(im, filtered_kernels, im_numbers, nbrs0, fpath)
 
             # get the query image number from its filename
             self.img_no = self.get_img_no(os.path.splitext(os.path.basename(fpath))[0])
