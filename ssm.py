@@ -1538,7 +1538,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             hg, wg, depthg = vgg16_feature_geom.shape[1], vgg16_feature_geom.shape[2], vgg16_feature_geom.shape[3]
 
             # declare k-NN model
-            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
+            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute',leaf_size=500, metric='cosine')
 
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
@@ -1564,7 +1564,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
             # train nearest neighbor for current query
             nbrs, array_geom_query = self.train_nearest_neigh(arr_size, vectors_query, hg, wg, nbrs_inst)
-
+            acc_time = 0
             # loop over image filtering candidates
             for c in range(0, self.ncand, 1):
                  cand = candidates[c]
@@ -1572,8 +1572,18 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                  # retrieve spatially-aware vectors from SMDB for current candidate
                  array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
 
+                 start_time2 = time.time()
+
                  # for each query vector, find the distances and indices of the nearest vectors in the current candidate
                  distances, indices = nbrs.kneighbors(array_geom_db)
+
+                 end_time2 = time.time()
+                 acc_time += end_time2 - start_time2
+                 if c == self.ncand - 1:
+                     # print(end_time2 - start_time2)
+                     print(acc_time)
+
+
                  indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
 
                  # get score for current candidate
