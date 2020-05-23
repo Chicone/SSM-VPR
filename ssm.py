@@ -1179,17 +1179,17 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0]**2, 1, 1))
 
         # compare patches
-        if torch.cuda.is_available():
-            # torch.cuda.synchronize()
-            # start_time2 = time.time()
-            query_patches = torch.from_numpy(query_patches).float().to("cuda")
-            cand_patches = torch.from_numpy(cand_patches).float().to("cuda")
-            # torch.cuda.synchronize()
-            # end_time2 = time.time()
-            # print(end_time2 - start_time2)
-            bdist0 = (query_patches == cand_patches).sum().cpu().item()
-        else:
-            bdist0 = np.count_nonzero(query_patches == cand_patches)
+        # if torch.cuda.is_available():
+        #     # torch.cuda.synchronize()
+        #     # start_time2 = time.time()
+        #     query_patches = torch.from_numpy(query_patches).float().to("cuda")
+        #     cand_patches = torch.from_numpy(cand_patches).float().to("cuda")
+        #     # torch.cuda.synchronize()
+        #     # end_time2 = time.time()
+        #     # print(end_time2 - start_time2)
+        #     bdist0 = (query_patches == cand_patches).sum().cpu().item()
+        # else:
+        bdist0 = np.count_nonzero(query_patches == cand_patches)
 
 
 
