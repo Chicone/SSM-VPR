@@ -873,8 +873,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
                 # create  CNN cubes
                 cnt = 0
-                for cgii in range(self.sblk, hg - self.sblk, 2):
-                    for cgjj in range(self.sblk, wg - self.sblk, 2):
+                for cgii in range(self.sblk, hg - self.sblk, 2):  # stride 2 to reduce complexity
+                    for cgjj in range(self.sblk, wg - self.sblk, 2):  # stride 2 to reduce complexity
                         if cnt == arr_size:
                             break
                         center = (cgii, cgjj)
@@ -1139,7 +1139,42 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return offset
 
-    def get_score_patch(self, query_indices,  nlr):
+    def get_score_patch(self, query_indices, cand_patches, nlr):
+        """
+        Gets the spatial matching score when using a patch around anchor points
+        :param indices_resh:
+        :param bdist0:
+        :param nlr: the number of activations from the center of the patch to one edge
+        :return: the score
+        """
+        acc = 0
+        patch_size = nlr
+        nlr2 = nlr // 2
+
+        # pad query array to allow for full patches near edges
+        query_indices_pad = np.pad(query_indices, (nlr2), 'constant', constant_values=-1000)
+
+        # extract patches
+        query_patches = image.extract_patches_2d(query_indices_pad, (patch_size, patch_size))
+
+        # create candidate patches according to each query closest match
+        query_indices_flat = query_indices.flatten()
+        cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0] ** 2, 1, 1))
+
+        # compare patches
+        # if torch.cuda.is_available():
+        #     # torch.cuda.synchronize()
+        #     # start_time2 = time.time()
+        #     query_patches = torch.from_numpy(query_patches).float().to("cuda")
+        #     cand_patches = torch.from_numpy(cand_patches).float().to("cuda")
+        #     # torch.cuda.synchronize()
+        #     # end_time2 = time.time()
+        #     # print(end_time2 - start_time2)
+        #     bdist0 = (query_patches == cand_patches).sum().cpu().item()
+        # else:
+        bdist0 = np.count_nonzero(query_patches == cand_patches)
+
+    def get_score_patch0(self, query_indices,  nlr):
         """
         Gets the spatial matching score when using a patch around anchor points
         :param indices_resh:
@@ -1443,18 +1478,30 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             hg, wg, depthg = vgg16_feature_geom.shape[1], vgg16_feature_geom.shape[2], vgg16_feature_geom.shape[3]
 
             # declare k-NN model
-            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
+#            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
+
+            # cosine distance gives slightly better precision tha euclidean
+            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
 
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
             min_dist[min_dist == 0] = 1E6
             self.blocks_per_side = side_eff
-            nlr = self.spatch // 2
+            nlr = int(side_eff * 0.75)  # make patch side approx 75 % of image width
+            if nlr % 2 == 0:
+                nlr = nlr - 1
+            patch_size = nlr
+            nlr2 = nlr // 2
+            cand_indices = np.arange(self.blocks_per_side**2).reshape((self.blocks_per_side, self.blocks_per_side)) - self.blocks_per_side**2 // 2
+            candc0 = int(cand_indices.shape[1] / 2)
+            cand_patch = cand_indices[candc0 - nlr2: candc0 + nlr2 + 1, candc0 - nlr2: candc0 + nlr2 + 1]
+            cand_patch = cand_patch - cand_patch[nlr2, nlr2]
+            cand_patches = np.stack([cand_patch  for i in range(self.blocks_per_side ** 2)], axis=0)
 
             # get maximum recognition score (as for identical images), which is used to calculate score percentage
             if i == 0:
                 indices0 = np.arange(arr_size).reshape((self.blocks_per_side, self.blocks_per_side))
-                same_img_score = self.get_score_patch(indices0, nlr)
+                same_img_score = self.get_score_patch(indices0, cand_patches, nlr)
 
             # train nearest neighbor for current query
             nbrs, array_geom_query = self.train_nn(arr_size, vectors_query, hg, wg, nbrs_inst)
