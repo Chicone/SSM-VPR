@@ -1,5 +1,4 @@
 import cv2
-import sys
 import ssmbase
 import glob
 from PyQt5.QtWidgets import QApplication, QMessageBox
@@ -25,6 +24,9 @@ from shutil import copyfile
 import matplotlib
 # matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
+from PIL import Image
+from sklearn.feature_extraction import image
+# import compute_neighbors
 
 
 try:
@@ -1174,6 +1176,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # else:
         bdist0 = np.count_nonzero(query_patches == cand_patches)
 
+        return bdist0
+
     def get_score_patch0(self, query_indices,  nlr):
         """
         Gets the spatial matching score when using a patch around anchor points
@@ -1319,8 +1323,49 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return nbrs, array_geom_query
 
+    def use_frame_corr(self, npf, pf_arr, cand, i):
+        # exploit frame correlation
+        wcand = 1
+        if i >= npf and npf != 0:
+            fmax = 15
+            accfp = 0
+            max_accfp = 0
+            for kk in range(npf):  # loop over past recognised events
+                if len(pf_arr[:, 1]) == 1 or np.max(pf_arr[:, 1]) == 0:
+                    strength = 1
+                else:
+                    #  contribution of each past event based on recognition score
+                    strength = pf_arr[npf - kk - 1, 1] / np.max(pf_arr[:, 1])
+
+                #  consider only those candidates within +-fmax distance of the past recogntion being considered
+                if np.abs(cand - (pf_arr[npf - kk - 1, 0])) <= fmax:
+                    contrib = strength * (self.cp / fmax * (fmax - np.abs(cand - (pf_arr[npf - kk - 1, 0]))))
+                    accfp += contrib
+
+                    # select the maximum contribution
+                    if contrib > max_accfp:
+                        max_accfp = contrib
+            wcand = 1 + max_accfp
+        return wcand
+
+    def compute_neighbors(self, candidates):
+        indices_arr = []
+        for c in range(0, self.ncand, 1):
+            cand = candidates[c]
+            array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
+            # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
+            # distances, indices = nbrs.kneighbors(array_geom_db)
+            indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
+            indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+            indices_arr.append(indices_resh)
+        return indices_arr
+
     def recognise_places(self):
         """Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
+
+        from multiprocessing import Lock, Pool
+#        from pathos.multiprocessing import ProcessingPool as Pool
+        from functools import partial
 
         self.reset_controls()
         self.refresh_view()
@@ -1423,6 +1468,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         npf = self.npf   # number of previous frames considered
         pf_arr = np.zeros((npf, 2))
         same_img_score = 1E6
+        nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine', )
 
         for i, fpath in enumerate(filenames):
 
@@ -1481,7 +1527,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 #            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
 
             # cosine distance gives slightly better precision tha euclidean
-            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
+            # nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
 
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
@@ -1504,43 +1550,28 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 same_img_score = self.get_score_patch(indices0, cand_patches, nlr)
 
             # train nearest neighbor for current query
-            nbrs, array_geom_query = self.train_nn(arr_size, vectors_query, hg, wg, nbrs_inst)
+            self.nbrs, array_geom_query = self.train_nn(arr_size, vectors_query, hg, wg, nbrs_inst)
+
+            # # multiprocessing
+            # cand_chunks = [candidates[i::20] for i in range(20)]
+            # pool = Pool(20)
+            # func = partial(compute_neighbors, self.ncand, self.vectors_local, self.image_numbers_local, self.nbrs, self.blocks_per_side)
+            # indices_arr = pool.map(func, cand_chunks) # iterable parameter at the end
+            # pool.close()
+            # pool.join()
+
+            indices_arr = self.compute_neighbors(candidates)
 
             # loop over image filtering candidates
             for c in range(0, self.ncand, 1):
                  cand = candidates[c]
-                 array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
-
-                 # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
-                 distances, indices = nbrs.kneighbors(array_geom_db)
-                 indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+                 indices_resh = indices_arr[c]
 
                  # get score for current candidate
-                 bdist0 = self.get_score_patch(indices_resh, nlr)
+                 bdist0 = self.get_score_patch(indices_resh, cand_patches, nlr)
 
                  # exploit frame correlation
-                 wcand = 1
-                 if i >= npf and npf != 0:
-                     fmax = 15
-                     accfp = 0
-                     max_accfp = 0
-                     for kk in range(npf):  # loop over past recognised events
-                         if len(pf_arr[:, 1]) == 1 or np.max(pf_arr[:, 1]) == 0:
-                             strength = 1
-                         else:
-                             #  contribution of each past event based on recognition score
-                             strength = pf_arr[npf - kk - 1, 1] / np.max(pf_arr[:, 1])
-
-                         #  consider only those candidates within +-fmax distance of the past recogntion being considered
-                         if np.abs(cand - (pf_arr[npf-kk-1, 0])) <= fmax:
-                             contrib = strength * (self.cp / fmax * (fmax - np.abs(cand - (pf_arr[npf-kk-1, 0]))))
-                             accfp += contrib
-
-                             # select the maximum contribution
-                             if contrib > max_accfp:
-                                 max_accfp = contrib
-
-                     wcand = 1 + max_accfp
+                 wcand = self.use_frame_corr(npf, pf_arr, cand, i)
 
                  # weight histogram bin taking past recognitions into account
                  scores_hist[cand] = bdist0 * wcand
