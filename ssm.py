@@ -98,6 +98,14 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.btnLoadTest.clicked.connect(self.search_for_dir_path_query)
         self.btnLoadGroungTruth.clicked.connect(self.search_for_file_path_ground_truth)
 
+        # hardcoded for quick testing
+        self.reference_folder = "/data/Datasets/Kudamm_icra/Reference"
+        self.refOkLabel.setText(self.reference_folder)
+        self.test_folder = "/data/Datasets/Kudamm_icra/Live"
+        self.testOkLabel.setText(self.test_folder)
+        self.ground_truth_file = os.path.dirname(self.test_folder) + '/GroundTruth.csv'
+        self.groundTruthOkLabel.setText(self.ground_truth_file)
+
         # run
         self.btnCreateDB.clicked.connect(self.create_database)
         self.btnRecognition.clicked.connect(self.recognise_places)
@@ -509,9 +517,19 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return pca, pca_geom
 
-    def forward(self, x, conv4_2, conv5_2):
+    def forward1(self, x, conv4_2, conv5_2):
         results = []
-        for ii, model in enumerate(self.model_pt):
+        for ii, model in enumerate(self.model1_pt):
+            x = model(x)
+            if ii in {conv4_2, conv5_2}:
+                results.append(x)
+                if ii == conv5_2:
+                    break
+        return results
+
+    def forward2(self, x, conv4_2, conv5_2):
+        results = []
+        for ii, model in enumerate(self.model2_pt):
             x = model(x)
             if ii in {conv4_2, conv5_2}:
                 results.append(x)
@@ -620,8 +638,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             input_batch1 = input_batch1.to('cuda')
             input_batch2 = input_batch2.to('cuda')
 
-        results1 = self.forward(input_batch1, 19, 26)  # conv_4-2 and conv_5-2
-        results2 = self.forward(input_batch2, 19, 26)  # conv_4-2 and conv_5-2
+        results1 = self.forward1(input_batch1, 19, 26)  # conv_4-2 and conv_5-2
+        results2 = self.forward2(input_batch2, 19, 26)  # conv_4-2 and conv_5-2
 
         if self.method == 'NetVLAD':
             pass
@@ -1266,22 +1284,31 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         from torchvision import transforms as T
 
         if torch.cuda.is_available():
-            model_pt = models.vgg16(pretrained=True).features.to("cuda").eval()
+            model1_pt = models.vgg16(pretrained=True)
+            model2_pt = models.vgg16(pretrained=True)
+            model1_pt = model1_pt.features.to("cuda").eval()
+            model2_pt.features[0].stride = (2, 2)
+            model2_pt = model2_pt.features.to("cuda").eval()
         else:
-            model_pt = models.vgg16(pretrained=True).features.eval()
+            model1_pt = models.vgg16(pretrained=True)
+            model2_pt = models.vgg16(pretrained=True)
+            model1_pt = model1_pt.features.eval()
+            model2_pt.features[0].stride = (2, 2)
+            model2_pt = model2_pt.features.eval()
 
-        self.model_pt = model_pt
+        self.model1_pt = model1_pt
+        self.model2_pt = model2_pt
 
         use_gpu = self.useGpuCheckBox.checkState()
 
         # initialize variables
         self.ref_dir = self.reference_folder + '/'
-        self.image_size1 = (224, 224)
-        self.image_size2 = (416, 416)
+        # self.image_size1 = (224, 224)
+        # self.image_size2 = (448, 448)
         self.num_dim1 = 125
         self.num_dim2 = 100
-        self.ns1 = 2000  # number of samples to train pca for stage I
-        self.ns2 = 2000  # number of samples to train pca for stage II
+        self.ns1 = 5000  # number of samples to train pca for stage I
+        self.ns2 = 5000  # number of samples to train pca for stage II
         self.lblk = 4    # 9x9 (x 512) CNN cubes
         self.sblk = 1    # 3x3 (x 512) CNN cubes
         self.batch_size = 200  # set value according to RAM resources
@@ -1291,7 +1318,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.refresh_view()
 
         self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
-        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(448), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
 
         self.create_db()
 
@@ -1390,14 +1417,23 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         self.refresh_view()
         self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
-        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(448), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
 
         if torch.cuda.is_available():
-            model_pt = models.vgg16(pretrained=True).features.to("cuda").eval()
+            model1_pt = models.vgg16(pretrained=True)
+            model2_pt = models.vgg16(pretrained=True)
+            model1_pt = model1_pt.features.to("cuda").eval()
+            model2_pt.features[0].stride = (2, 2)
+            model2_pt = model2_pt.features.to("cuda").eval()
         else:
-            model_pt = models.vgg16(pretrained=True).features.eval()
-        #        model_pt.eval()
-        self.model_pt = model_pt
+            model1_pt = models.vgg16(pretrained=True)
+            model2_pt = models.vgg16(pretrained=True)
+            model1_pt = model1_pt.features.eval()
+            model2_pt.features[0].stride = (2, 2)
+            model2_pt = model2_pt.features.eval()
+
+        self.model1_pt = model1_pt
+        self.model2_pt = model2_pt
 
         self.reset_controls()
         self.refresh_view()
@@ -1412,8 +1448,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.lblk = 4
         self.sblk = 1
         self.dirname = dirname
-        self.image_size1 = (int(self.imageWidthLineEdit_s1.text()), int(self.imageHeightLineEdit_s1.text()))
-        self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
+        # self.image_size1 = (int(self.imageWidthLineEdit_s1.text()), int(self.imageHeightLineEdit_s1.text()))
+        # self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
         self.max_ncubes = 36        # number of CNN cubes used in stage I
         self.cp = 0.4               # experimental frame correlation factor
         self.spatch = 19            # number of activations per side of the patch in stage II
