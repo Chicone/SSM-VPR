@@ -1245,7 +1245,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         from keras.models import Model
         from vgg16_places_356 import VGG16_Places365
-
+        # from keras.applications.vgg16 import VGG16
+        # model = VGG16(weights='imagenet', include_top=False)
         # load pre-trained network model
         model = VGG16_Places365(weights='places', include_top=False)
 
@@ -1375,6 +1376,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         import yaml
         from keras.models import Model
         from vgg16_places_356 import VGG16_Places365
+#         from keras.applications.vgg16 import VGG16
+#         model = VGG16(weights='imagenet', include_top=False)
         from numpy import loadtxt
         from joblib import dump, load
 
