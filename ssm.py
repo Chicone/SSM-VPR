@@ -4,7 +4,6 @@ import glob
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import QThreadPool, QRunnable
-
 from sklearn.decomposition import PCA
 import sklearn.preprocessing as pp
 from sklearn.neighbors import NearestNeighbors
@@ -21,13 +20,8 @@ import numpy as np
 import tkinter
 from tkinter import filedialog, Tk, messagebox
 from shutil import copyfile
-import matplotlib
-# matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
-from PIL import Image
 from sklearn.feature_extraction import image
-# import compute_neighbors
-
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -45,37 +39,37 @@ except AttributeError:
 #import matplotlib.pyplot as plt
 print ("OpenCV v" + cv2.__version__)
 
+def time_decorator(decorated):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        output = decorated(*args, **kwargs)
+        end = time.time()
+        print(decorated.__name__ + " took " + str(round((end - start), 5)) + " seconds")
+        return output
+    return wrapper
+
+
 class ssm_MainWindow(ssmbase.Ui_MainWindow):
-    """ """
+    """ Main class for GUI and VPR"""
+
     def setupUi(self, MainWindow):
-        """ Sets up the VPR user interface  default parameters."""
+        """ Sets up the VPR user interface default parameters."""
         ssmbase.Ui_MainWindow.setupUi(self, MainWindow)
 
         self.threadpool = QThreadPool()
-        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
-
+        # print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
         self.method = 'VGG16'
-
         self.reference_folder = str()
         self.test_folder = str()
         self.ground_truth_file = str()
         self.recognition_paused = False
         self.recognition_continued = False
         self.recognition_stopped = False
-
         self.useGpuCheckBox.setChecked(1)
-
         self.actionAbout.triggered.connect(self.showAboutBox)
-
         self.textBrowser.append("OpenCV v" + cv2.__version__)
         self.path = None
-        # self.actionSave_path.triggered.connect(self.savePath)
         self.stopSignal = False
-
-
-
-        # self.targetSigmaLineEdit.setToolTip('A value of -1 adjusts the sigma (standard deviation) to the size set in the field above')
-        # self.pixelResLineEdit.setToolTip('In units of pixel. For instance, 0.1 will allow the cloud to move in steps of a minimum of 0.1 pixels')
 
         # stage I
         self.imageWidthLineEdit_s1.textChanged.connect(self.refresh_view)
@@ -110,36 +104,23 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.btnLoadGroungTruth.clicked.connect(self.search_for_file_path_ground_truth)
 
         # run
-        self.btnCreateDB.clicked.connect(self.create_database)
+        self.btnCreateDB.clicked.connect(self.create_databases)
         self.btnRecognition.clicked.connect(self.recognise_places)
 
         # controls
-        # self.btnPause.clicked.connect(self.pause_recognition)
         self.btnPause.clicked.connect(self.pause_continue)
-        # self.btnContinue.clicked.connect(self.continue_recognition)
         self.btnStop.clicked.connect(self.stop_recognition)
 
         # output
         self.btnSaveOutput.clicked.connect(self.save_output)
-
-        # worker = Plot_PR_curves(self.frameTolLineEdit.text())
-        # self.threadpool.start(worker)
-        # self.btnPRcurves.clicked.connect(self.plot_PR_curves)
         self.btnPRcurves.clicked.connect(self.set_plot_thread)
 
         # gpu
         self.useGpuCheckBox.clicked.connect(self.use_gpu)
 
-
         # console
-        # self.textBrowser.setOpenExternalLinks(False)
         self.textBrowser.setOpenLinks(False)
         self.textBrowser.anchorClicked.connect(self.on_anchor_clicked)
-        # self.textBrowser.anchorMouseOver.connect(self.on_anchor_clicked)
-        # self.textBrowser.getCursor(self.line_clicked)
-
-        # self.targetSigmaLineEdit.returnPressed.connect(self.refresh_view)
-
 
     def showAboutBox(self):
         ab = about.AboutForm()
@@ -238,8 +219,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.image_visualize_query(query_path)
         self.image_visualize_output(output_path)
         self.image_visualize_reference(ref_path)
-
-
 
     def search_for_dir_path_reference(self):
         # import tkinter
@@ -344,149 +323,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         filename = filedialog.asksaveasfile(mode='w', **options)
         copyfile('Live_output.txt', filename.name)
 
-    # def create_PR_data(self):
-    #     import csv
-    #     import numpy as np
-    #
-    #     # # read output file
-    #     # prec_recall_data = self.pr_file
-    #
-    #     img_sep = int(self.frameTolLineEdit.text())
-    #     self.pr_data = []
-    #     for results in self.pr_file:
-    #         with open(results) as csv_file:
-    #             csv_reader = csv.reader(csv_file, delimiter=',')
-    #             data = []
-    #             for row in csv_reader:
-    #                 data.append(row)
-    #
-    #             min_thresh = np.round(float(min(np.asarray(data)[:, 4])), 1)
-    #             max_thresh = np.round(float(max(np.asarray(data)[:, 4])), 1)
-    #
-    #             pr_data = []
-    #             for mthresh in np.arange(min_thresh, max_thresh, 0.05):
-    #
-    #                 tpcnt = 0  # true positive counter
-    #                 fncnt = 0  # false negative counter
-    #                 fpcnt = 0  # false positive counter
-    #                 accuracy = 0
-    #                 precision = 0
-    #                 recall = 0
-    #                 for r in range(len(data)):
-    #                     file = int(data[r][2])
-    #                     img_no = int(data[r][3])
-    #                     thresh = float(data[r][4])
-    #
-    #                     if thresh < mthresh:
-    #                         file = -1
-    #
-    #                     if file == -1:
-    #                         fncnt += 1
-    #                         color = '\033[91m'
-    #                         if tpcnt > 0:
-    #                             precision = tpcnt / float(tpcnt + fpcnt)
-    #                             recall = tpcnt / float(tpcnt + fncnt)
-    #                             # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
-    #                             #                                            str(np.round(precision * 100, 1)),
-    #                             #                                            str(np.round(recall * 100, 1))))
-    #                     elif np.abs(file - img_no) <= img_sep:  # recognised (true positives)
-    #                         tpcnt += 1
-    #                         color = '\033[92m'
-    #                         precision = tpcnt / float(tpcnt + fpcnt)
-    #                         recall = tpcnt / float(tpcnt + fncnt)
-    #                         # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
-    #                         #                                            str(np.round(precision * 100, 1)),
-    #                         #                                            str(np.round(recall * 100, 1))))
-    #                     else:  # wrongly recognised (false positive)
-    #                         fpcnt += 1
-    #                         color = '\033[91m'
-    #                         if tpcnt > 0:
-    #                             precision = tpcnt / float(tpcnt + fpcnt)
-    #                             recall = tpcnt / float(tpcnt + fncnt)
-    #                         # print(color + '{:>4}  {:>8}  {:>8}'.format(str(r),
-    #                         #                                            str(np.round(precision * 100, 1)),
-    #                         #                                            str(np.round(recall * 100, 1))))
-    #
-    #                 pr_data.append([np.round(precision * 100, 1) , np.round(recall * 100, 1), np.round(mthresh, 2)])
-    #                 # print(str(np.round(precision * 100, 1)) + "," + str(np.round(recall * 100, 1)) + "," + str(np.round(mthresh, 2)) )
-    #             self.pr_data.append(pr_data)
-    #
-    # def compute_auc(self, data):
-    #     """Area under the curve for Precision-Recall curves"""
-    #     auc = 0
-    #     for i in range(1, len(data)):
-    #         delta_rec = np.abs(data[i, 1] - data[i - 1, 1])
-    #         mid_prec = (data[i, 0] + data[i - 1, 0]) / 2.
-    #         auc += delta_rec * mid_prec
-    #         if i == len(data) - 1:
-    #             if data[i, 1] != 0:
-    #                 auc = auc + data[i, 1]
-    #     return auc
-    #
-    # def plot_PR_curves(self):
-    #
-    #     # initiate tinker and hide window
-    #     main_win = tkinter.Tk()
-    #     main_win.withdraw()
-    #
-    #     # open file selector
-    #     # self.pr_file = filedialog.askopenfilenames(parent=main_win, initialdir="output", title='Please select results file. You can select more than one')
-    #     self.pr_file = filedialog.askopenfilenames(initialdir="output", title='Please select results file. You can select more than one')
-    #
-    #     # close window after selection
-    #     main_win.destroy()
-    #
-    #     # get Precision-Recall data generated from output file
-    #     self.create_PR_data()
-    #     # auc = compute_auc(data / 100);
-    #
-    #     fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, sharey=True)
-    #     fig.add_subplot(111, frameon=False)
-    #     # props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    #     # fig.set_size_inches(12.81, 6.3)
-    #
-    #     cnt = 0
-    #     for pr_data in self.pr_data:
-    #         _pr_data = np.asarray(pr_data)
-    #         precision = _pr_data[:, 0]  # / 100.
-    #         recall = _pr_data[:,1] #/ 100.
-    #         auc = self.compute_auc(_pr_data / 100);
-    #         ax.plot(recall, precision, linestyle='solid', linewidth=3,label=os.path.splitext(os.path.basename(self.pr_file[cnt]))[0] +
-    #                       '(AUC=' + str(np.round(auc, 3))  + ')' )
-    #         cnt += 1
-    #
-    #     ax.grid(True, linestyle='dotted')
-    #     # ax.text(0.6, 0.1, "day-left vs. night-right", fontsize=14, bbox=props, transform=ax.transAxes)
-    #     ax.legend(fontsize=16, loc='lower left')
-    #     ax.set_yticks([0.0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
-    #     ax.tick_params(axis='both', which='major', labelsize=12)
-    #
-    #     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    #     plt.grid(False)
-    #     plt.xlabel("Recall ($\%$)", fontsize=16)
-    #     plt.ylabel("Precision ($\%$)", fontsize=16)
-    #     plt.title("Precision-Recall curves", fontsize=18)
-    #     fig.subplots_adjust(bottom=0.2, top=0.9, left=0.1, right=0.97)
-    #
-    #     ax.set_xlim(0, 100)
-    #     ax.set_ylim(0.0, 100)
-    #     plt.show()
-    #
-    #     plt.pause(0.1)
-    #     plt.close(fig)
-
-
-#     def check_plot_open(self, pr_file):
-#         if pr_file == 0:
-#             root = Tk()
-#             root.withdraw()
-#             self.pr_file = filedialog.askopenfilenames(initialdir="output", title='Please select results file. You can select more than one')
-#             worker = Plot_PR_curves(self.frameTolLineEdit.text(), self.pr_file)
-#             self.threadpool.start(worker)
-# #            self.pr_file = []
-#             root.quit()
-
-
     def set_plot_thread(self):
         if len(plt.get_fignums()) == 0:
             root = Tk()
@@ -498,8 +334,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         else:
             self.warning_win('Warning', 'A figure is currently being displayed.', 'Please, close it first.')
             # return 0
-
-
 
     def use_gpu(self):
         if self.useGpuCheckBox.checkState() == 0:
@@ -522,11 +356,140 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # if hasattr(self,function):
             #     getattr(self,function)()
 
+    def select_method(self):
+        """Select the checked option from the available methods"""
+
+        if self.vggRadioButton.isChecked():
+            self.method = 'VGG16'
+        elif self.netvladRadioButton.isChecked():
+            self.method = 'NetVLAD'
+
+    def warning_win(self, title, message1, message2):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(message1)
+        msg.setInformativeText(message2)
+        msg.setWindowTitle(title)
+        msg.exec_()
+
+
+
+#####  Functions for Visual Place Recogniton  #######
+
+    def prepare_img(self, fpath, image_size):
+        im = cv2.imread(fpath)
+        img_data = cv2.resize(im, image_size, interpolation=cv2.INTER_CUBIC)
+        img_data = np.expand_dims(img_data, axis=0)
+        img_data = preprocess_input(img_data)
+        return img_data
+
+    def get_img_no(self, fname):
+        """gets the right image number from image filename"""
+        img_no = int(''.join(map(str, [int(s) for s in os.path.splitext(fname)[0] if s.isdigit()])))
+        return img_no
+
+    def prepare_NetVLAD(self):
+        # prepare NetVLAD model
+        tf.reset_default_graph()
+        image_batch = tf.placeholder(dtype=tf.float32, shape=[None, None, None, 3])
+
+        net_out = nets.vgg16NetvladPca(image_batch)
+        saver = tf.train.Saver()
+
+        sess = tf.Session()
+        saver.restore(sess, nets.defaultCheckpoint())
+        return image_batch, net_out, sess
+
+    def printEvaluation(self, color, index, accuracy, precision, recall, f1, fpath, score, tpi=None, file=None, gt=None):
+        """[summary]
+
+        Arguments:
+            color {[type]} -- [description]
+            index {[type]} -- [description]
+            accuracy {[type]} -- [description]
+            precision {[type]} -- [description]
+            recall {[type]} -- [description]
+            f1 {[type]} -- [description]
+            fpath {[type]} -- [description]
+            score {[type]} -- [description]
+
+        Keyword Arguments:
+            file {[type]} -- [description] (default: {None})
+        """
+        print(color + '{:>4}  {:>8}  {:>8}  {:>8} {:>8}   {:>4} {:>8}  {:>6}  {:>8}'.format(str(index + 1),
+                                                                                   "A:" + str(np.round(accuracy * 100, 1)) + "%",       # Accuracy
+                                                                                   "P:" + str(np.round(precision * 100, 1)) + "%",      # Precision
+                                                                                   "R:" + str(np.round(recall * 100, 1)) + "%",         # Recall
+                                                                                   "F1:" + str(np.round(f1, 2)),                        # F1
+                                                                                   "Q:" + os.path.splitext(os.path.basename(fpath))[0], # Query image
+                                                                                   "Rec:" + str(file),                                  # Recognised image
+                                                                                   "S:" + str(np.round(score, 1)) + "%",                # Recognition score
+                                                                                   "T" + str(np.round(tpi, 2))))
+
+
+
+        if index % 10 == 0:
+            self.textBrowser.setTextColor(QtGui.QColor(0, 0, 0))
+            self.textBrowser.append('{:*^5s}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format("Index",
+                                                                                   "Accuracy(%)",       # Accuracy
+                                                                                   "Precision(%)",      # Precision
+                                                                                   "Recall(%)",         # Recall
+                                                                                   "F1",                        # F1
+                                                                                   "Query" , # Query image
+                                                                                   "Guess",                                  # Recognised image
+                                                                                   "Score(%)",                # Recognition score
+                                                                                   "Lat.(s)" ))
+
+
+        QApplication.processEvents()
+
+        if color == '\033[91m':
+            color = QtGui.QColor(255,0,0)  # red
+            rgb_str = 'rgb(255, 0, 0)'
+        else:
+            color = QtGui.QColor(0,128,0)  # green
+            rgb_str = 'rgb(0, 128, 0)'
+
+        self.textBrowser.setTextColor(color)
+
+        # self.textBrowser.append('{:>5}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format((str(index + 1)).center(5),
+        #                                                                            (str(np.round(accuracy * 100, 1)) + "%").center(12),       # Accuracy
+        #                                                                            (str(np.round(precision * 100, 1)) + "%").center(12),      # Precision
+        #                                                                            (str(np.round(recall * 100, 1)) + "%").center(10),         # Recall
+        #                                                                            (str(np.round(f1, 2))).center(6),                        # F1
+        #                                                                            (str(int(os.path.splitext(os.path.basename(fpath))[0][5:]))).center(8), # Query image
+        #                                                                            (str(file)).center(8),                                  # Recognised image
+        #                                                                            (str(np.round(score, 1)) + "%").center(10),                # Recognition score
+        #                                                                            (str(np.round(tpi, 2))).center(8)))
+
+        # vis_str = self.image_visualize_all(fpath,file,gt)
+        vis_str = os.path.basename(fpath) + '_' + os.path.basename(file) +  '_' + os.path.basename(gt)
+
+        clickable_str = '<html><body>  <a href="http://www.' + vis_str + '"style="text-decoration:none;color:' + rgb_str + '"><pre>' +\
+                        '{:>5}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format((str(index + 1)).center(5),
+                                                                                   (str(np.round(accuracy * 100, 1)) + "%").center(12),       # Accuracy
+                                                                                   (str(np.round(precision * 100, 1)) + "%").center(12),      # Precision
+                                                                                   (str(np.round(recall * 100, 1)) + "%").center(10),         # Recall
+                                                                                   (str(np.round(f1, 2))).center(6),                        # F1
+                                                                                   (str(int(os.path.splitext(os.path.basename(fpath))[0][5:]))).center(8), # Query image
+                                                                                   (str(int(os.path.splitext(os.path.basename(file))[0][5:]))).center(8),                                  # Recognised image
+                                                                                   (str(np.round(score, 1)) + "%").center(10),                # Recognition score
+                                                                                   (str(np.round(tpi, 2))).center(8)) + \
+                        '</pre></a></body></html>'
+
+
+
+        # clickable_str = self.textBrowser.setHtml(clickable_str)
+        self.textBrowser.append(clickable_str)
+        QApplication.processEvents()
+
+
+    ##### offline part (database creation) ####
 
     def add_baseline_vgg16(self, fnames,  vgg16_feature_arr, h, w):
         """
         Creates VGG features for Stage I of the system
-        :param fnames: List of filenames on which to create features
+        :param fnames: List of image file names on which to create features
         :param vgg16_feature_arr: Activations from VGG16 layer
         :param h: Height
         :param w: Width
@@ -565,20 +528,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     img_no = self.get_img_no(fname)
                     im_numbers.append(img_no)
                     cnt2 += 1
-        print(ncubes, np.asarray(im_numbers).shape[0]/len(fnames))
+        # print(ncubes, np.asarray(im_numbers).shape[0]/len(fnames))
         return np.asarray(db_array), im_numbers
-
-    def prepare_NetVLAD(self):
-        # prepare NetVLAD model
-        tf.reset_default_graph()
-        image_batch = tf.placeholder(dtype=tf.float32, shape=[None, None, None, 3])
-
-        net_out = nets.vgg16NetvladPca(image_batch)
-        saver = tf.train.Saver()
-
-        sess = tf.Session()
-        saver.restore(sess, nets.defaultCheckpoint())
-        return image_batch, net_out, sess
 
     def add_baseline_netvlad(self, fnames,  sess, net_out, image_batch):
         """
@@ -611,21 +562,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             im_numbers.append(img_no)
         return db_array, im_numbers
 
-    def prepare_img(self, fpath, image_size):
-        im = cv2.imread(fpath)
-        img_data = cv2.resize(im, image_size, interpolation=cv2.INTER_CUBIC)
-        img_data = np.expand_dims(img_data, axis=0)
-        img_data = preprocess_input(img_data)
-        return img_data
-
-    def get_img_no(self, fname):
-        """gets the right image number from image filename"""
-        img_no = int(''.join(map(str, [int(s) for s in os.path.splitext(fname)[0] if s.isdigit()])))
-        return img_no
-
     def train_pca(self, db_array, geom_array, ns1, ns2):
         """
-        Trains PAC models for  stages I and II
+        Trains PCA models for  stages I and II
         :param db_array: Vectors for stage I
         :param geom_array: Vectors for stage II
         :param ns1: Max number of samples for stage I
@@ -634,8 +573,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         """
 
 
-        print("training pca...")
-        self.textBrowser.append(str('{}'.format("training pca...")))
+        print("training PCA with " + str(ns1) + " sample descriptors...")
+        self.textBrowser.append(str('{}'.format("training PCA with " + str(ns1) + " sample descriptors...")))
         QApplication.processEvents()
         pca = None
         if ns2 > len(geom_array):
@@ -669,10 +608,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return pca, pca_geom
 
-    def calc_pca(self,  dir_fnames,  dset_name):
-        """Calculates the pca models for stages I and II using  self.batch_size random number of images from the reference dataset
+    def calc_pca(self, dir_fnames):
+        """Calculates the PCA models for stages I and II using  self.batch_size random number of images from the reference dataset
         :param list dir_fnames: List of filenames in the reference sequence
-        :param : string dset_name: Name of the dataset
         """
         vgg16_feature_arr = []
         vgg16_feature_geom_arr = []
@@ -686,15 +624,14 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # get activations for stages I and II
         for idx, fname in enumerate(ran_fnames):
             if idx % 1 == 0:
-                print(idx , fname, "pca: calculating activations...")
-                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "pca: calculating activations...")) )
+                print(idx, fname, "PCA: calculating activations...")
+                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: calculating activations...")) )
                 QApplication.processEvents()
-
             fpath = self.ref_dir + fname
 
             # prepare image resolutions
             img_data1 = self.prepare_img(fpath, self.image_size1)  # stage I
-            img_data2 = self.prepare_img(fpath, self.image_size2)    # stage II
+            img_data2 = self.prepare_img(fpath, self.image_size2)  # stage II
 
             if self.method == 'NetVLAD':
                 pass
@@ -716,17 +653,13 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             h, w, depth = vgg16_feature_np.shape[1], vgg16_feature_np.shape[2], vgg16_feature_np.shape[3]
             db_array, im_numbers = self.add_baseline_vgg16(ran_fnames, vgg16_feature_arr, h, w)
 
-        db_array = np.asarray(db_array)
         vgg16_feature_geom_arr = np.asarray(vgg16_feature_geom_arr)
 
         # prepare spatial matching arrays
         side = vgg16_feature_geom_arr.shape[2]
-
-        side_eff = side // 2 - 1
+        side_eff = side // 2 - 1  # reduce to half to account for the stride of 2
         arr_size = side_eff ** 2
 
-        # side_eff = int(np.ceil(side / 2 - 1))
-        # arr_size = side_eff ** 2
         geom_array = np.zeros((len(ran_fnames) * arr_size + 1, 4608))
 
         cnt_geom_arr = 0
@@ -734,8 +667,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # get features for stage II
         for idx, fname in enumerate(ran_fnames):
             if idx % 1 == 0:
-                print(idx, fname, "pca: creating spatial matching features...")
-                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "pca: creating spatial matching features...")) )
+                print(idx, fname, "PCA: creating spatial matching features...")
+                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: creating spatial matching features...")) )
                 QApplication.processEvents()
 
             img_no = self.get_img_no(fname)
@@ -760,7 +693,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         pca, pca_geom = self.train_pca(db_array, geom_array, self.ns1, self.ns2)
         return pca, pca_geom, db_array
 
-    def create_db(self):
+    def create_descriptors(self):
         """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
         in files vectors.npy (stage I) and vectors_local.npy (stage II)"""
 
@@ -770,12 +703,10 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.dataset_name = os.path.split(os.path.split(self.reference_folder)[0])[1]
         try:
             f = open('./db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
-            # f = open('./db/stage1_imgnum_'  + self.dataset_name + '_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.out')
             f = open('./db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
             self.textBrowser.append('{} '.format("STAGE I: database of descriptors already existed and loaded"))
             try:
                 f = open('./db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
-                # f = open('./db/stage2_imgnum_'  + self.dataset_name + '_' + self.imageWidthLineEdit_s2.text() +  '.out')
                 f = open('./db/'  + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text() +  '.npy')
                 self.textBrowser.append('{} '.format("STAGE II: database of descriptors already existed and loaded"))
                 return 0
@@ -784,9 +715,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         except:
             pass
 
-        # extract dataset name
-        dset_name = os.path.split(os.path.split(self.ref_dir[:-1])[0])[1]
-
         # get filenames
         dir_fnames = [d for d in os.listdir(self.ref_dir)]
         dir_fnames.sort()
@@ -794,12 +722,12 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # number of batches (batches are required due to limited RAM)
         n_batches = int(np.ceil(len(dir_fnames) / self.batch_size))
 
-        # train and save pca models
-        pca, pca_geom, db_array = self.calc_pca(dir_fnames, dset_name)
+        # train and save PCA models
+        pca, pca_geom, db_array = self.calc_pca(dir_fnames)
+
         if self.method == 'NetVLAD':
-             pass
+             pass  # NetVLAD does its own PCA
         elif self.method == 'VGG16':
-            # dump(pca, 'pca/pca' + '_' + 'stage1.joblib')
             dump(pca, 'pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_VGG16.joblib')
 
         # dump(pca_geom, 'pca/pca' + '_' + 'stage2.joblib')
@@ -909,88 +837,47 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return 0
 
-    def PrintEvaluation(self, color, index, accuracy, precision, recall, f1, fpath, score, tpi=None, file=None, gt=None):
-        """[summary]
+    def create_databases(self):
+        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
 
-        Arguments:
-            color {[type]} -- [description]
-            index {[type]} -- [description]
-            accuracy {[type]} -- [description]
-            precision {[type]} -- [description]
-            recall {[type]} -- [description]
-            f1 {[type]} -- [description]
-            fpath {[type]} -- [description]
-            score {[type]} -- [description]
+        from keras.models import Model
+        from vgg16_places_356 import VGG16_Places365
+        # from keras.applications.vgg16 import VGG16
+        # model = VGG16(weights='imagenet', include_top=False)
+        # load pre-trained network model
+        model = VGG16_Places365(weights='places', include_top=False)
 
-        Keyword Arguments:
-            file {[type]} -- [description] (default: {None})
-        """
-        print(color + '{:>4}  {:>8}  {:>8}  {:>8} {:>8}   {:>4} {:>8}  {:>6}  {:>8}'.format(str(index + 1),
-                                                                                   "A:" + str(np.round(accuracy * 100, 1)) + "%",       # Accuracy
-                                                                                   "P:" + str(np.round(precision * 100, 1)) + "%",      # Precision
-                                                                                   "R:" + str(np.round(recall * 100, 1)) + "%",         # Recall
-                                                                                   "F1:" + str(np.round(f1, 2)),                        # F1
-                                                                                   "Q:" + os.path.splitext(os.path.basename(fpath))[0], # Query image
-                                                                                   "Rec:" + str(file),                                  # Recognised image
-                                                                                   "S:" + str(np.round(score, 1)) + "%",                # Recognition score
-                                                                                   "T" + str(np.round(tpi, 2))))
+        use_gpu = self.useGpuCheckBox.checkState()
 
+        # define the models for each stage
+        model1_name = 'block5_conv2'
+        model2_name = 'block4_conv2'
+        model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
+        model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
 
-
-        if index % 10 == 0:
-            self.textBrowser.setTextColor(QtGui.QColor(0, 0, 0))
-            self.textBrowser.append('{:*^5s}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format("Index",
-                                                                                   "Accuracy(%)",       # Accuracy
-                                                                                   "Precision(%)",      # Precision
-                                                                                   "Recall(%)",         # Recall
-                                                                                   "F1",                        # F1
-                                                                                   "Query" , # Query image
-                                                                                   "Guess",                                  # Recognised image
-                                                                                   "Score(%)",                # Recognition score
-                                                                                   "Lat.(s)" ))
-
-
-        QApplication.processEvents()
-
-        if color == '\033[91m':
-            color = QtGui.QColor(255,0,0)  # red
-            rgb_str = 'rgb(255, 0, 0)'
-        else:
-            color = QtGui.QColor(0,128,0)  # green
-            rgb_str = 'rgb(0, 128, 0)'
-
-        self.textBrowser.setTextColor(color)
-
-        # self.textBrowser.append('{:>5}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format((str(index + 1)).center(5),
-        #                                                                            (str(np.round(accuracy * 100, 1)) + "%").center(12),       # Accuracy
-        #                                                                            (str(np.round(precision * 100, 1)) + "%").center(12),      # Precision
-        #                                                                            (str(np.round(recall * 100, 1)) + "%").center(10),         # Recall
-        #                                                                            (str(np.round(f1, 2))).center(6),                        # F1
-        #                                                                            (str(int(os.path.splitext(os.path.basename(fpath))[0][5:]))).center(8), # Query image
-        #                                                                            (str(file)).center(8),                                  # Recognised image
-        #                                                                            (str(np.round(score, 1)) + "%").center(10),                # Recognition score
-        #                                                                            (str(np.round(tpi, 2))).center(8)))
-
-        # vis_str = self.image_visualize_all(fpath,file,gt)
-        vis_str = os.path.basename(fpath) + '_' + os.path.basename(file) +  '_' + os.path.basename(gt)
-
-        clickable_str = '<html><body>  <a href="http://www.' + vis_str + '"style="text-decoration:none;color:' + rgb_str + '"><pre>' +\
-                        '{:>5}  {:>12}  {:>12}  {:>10}  {:>4}  {:>8}  {:>8}  {:>10}  {:>8}'.format((str(index + 1)).center(5),
-                                                                                   (str(np.round(accuracy * 100, 1)) + "%").center(12),       # Accuracy
-                                                                                   (str(np.round(precision * 100, 1)) + "%").center(12),      # Precision
-                                                                                   (str(np.round(recall * 100, 1)) + "%").center(10),         # Recall
-                                                                                   (str(np.round(f1, 2))).center(6),                        # F1
-                                                                                   (str(int(os.path.splitext(os.path.basename(fpath))[0][5:]))).center(8), # Query image
-                                                                                   (str(int(os.path.splitext(os.path.basename(file))[0][5:]))).center(8),                                  # Recognised image
-                                                                                   (str(np.round(score, 1)) + "%").center(10),                # Recognition score
-                                                                                   (str(np.round(tpi, 2))).center(8)) + \
-                        '</pre></a></body></html>'
+        # initialize variables
+        self.model1 = model1
+        self.model1_name = model1_name
+        self.ref_dir = self.reference_folder + '/'
+        self.model2 = model2
+        self.model2_name = model2_name
+        self.image_size1 = (224, 224)
+        self.image_size2 = (416, 416)
+        self.num_dim1 = 125
+        self.num_dim2 = 100
+        self.ns1 = 3000  # number of samples to train pca for stage I
+        self.ns2 = 3000  # number of samples to train pca for stage II
+        self.lblk = 4    # 9x9 (x 512) CNN cubes
+        self.sblk = 1    # 3x3 (x 512) CNN cubes
+        self.batch_size = 200  # set value according to RAM resources
+        self.filtered_kernels = np.arange(512)
+        self.filtered_kernels_geom = np.arange(512)
+        self.max_ncubes = 36
+        self.refresh_view()
+        self.create_descriptors()
 
 
-
-        # clickable_str = self.textBrowser.setHtml(clickable_str)
-        self.textBrowser.append(clickable_str)
-        QApplication.processEvents()
+    ##### online part (recognition) ####
 
     def baseline_vgg16(self, im, filtered_kernels, im_numbers, nbrs0):
         """Stage I for the VGG16 implementation.
@@ -1109,77 +996,35 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return candidates, cand_dist, img_hist
 
-    def get_hor_offset_patch(self, nbrs_inst, array_geom_current, array_geom_db, nlr):
-        # array_geom_db = self.vectors_local[np.where(self.image_numbers_local == hit)]
-        # train nearest neighbour
-        nbrs = nbrs_inst.fit(array_geom_current)
-        distances, indices = nbrs.kneighbors(array_geom_db)
-        indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
-        eq_arr = np.zeros((self.blocks_per_side, self.blocks_per_side), bool)
-        steer_hist = np.zeros(2 * self.blocks_per_side, int)
-
-        # arange = np.arange(self.spatch ** 2).reshape((self.spatch, self.spatch)) - int((self.spatch ** 2 - 1) / 2)
-        arange = np.arange((2 * nlr + 1) ** 2).reshape(((2 * nlr + 1, 2 * nlr + 1))) - int(((2 * nlr + 1) ** 2 - 1) / 2)
-        # create array padded on the outside so that locations in near the border of the original array can be dealt with
-        # we fill it with a value of -1000 that we know never is going to match
-        indices_pad = np.pad(indices_resh, nlr, 'constant', constant_values=-1000)
-        for ci in range(nlr, indices_pad.shape[0] - nlr, 1):
-            for cj in range(nlr, indices_pad.shape[1] - nlr, 1):
-                ind_patch = indices_pad[ci - nlr: ci + nlr + 1, cj - nlr: cj + nlr + 1]
-                # eq_arr = (ind_patch == (arange + (indices_pad[ci, cj])))
-                # eq_arr[ci, cj] = False
-                match_idx = np.unravel_index(indices_resh[ci-nlr, cj-nlr], (self.blocks_per_side, self.blocks_per_side))
-                if match_idx[1] - (cj - nlr) >= 0:
-                    # steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.sum(eq_arr)
-                    steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
-                else:
-                    # steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.sum(eq_arr)
-                    steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
-
-        steer = np.argmax(steer_hist) - self.blocks_per_side
-        offset = np.round((float(steer)/self.blocks_per_side), 3)
-
-        return offset
-
-    def get_score_patch(self, query_indices, cand_patches, nlr):
+    def get_score_patch(self, query_indices, cand_patches, patch_size):
         """
-        Gets the spatial matching score when using a patch around anchor points
-        :param indices_resh:
-        :param bdist0:
+        Vectorized speed-up version of the spatial matching procedure
+        Gets the spatial matching score when using a patch of features around anchor points
+        :param query_indices: indices of the matched features in the query for each feature in the candidate
+        :param cand_patches: tensor of identical candidate patches (central element is zero)
         :param nlr: the number of activations from the center of the patch to one edge
         :return: the score
         """
-        acc = 0
-        patch_size = nlr
-        nlr2 = nlr // 2
+
+        nlr2 = patch_size // 2
 
         # pad query array to allow for full patches near edges
         query_indices_pad = np.pad(query_indices, (nlr2), 'constant', constant_values=-1000)
 
-        # extract patches
+        # extract patches of features
         query_patches = image.extract_patches_2d(query_indices_pad, (patch_size, patch_size))
 
-        # create candidate patches according to each query closest match
+        # adjust candidate patches according to each query closest match
         query_indices_flat = query_indices.flatten()
         cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0] ** 2, 1, 1))
 
-        # compare patches
-        # if torch.cuda.is_available():
-        #     # torch.cuda.synchronize()
-        #     # start_time2 = time.time()
-        #     query_patches = torch.from_numpy(query_patches).float().to("cuda")
-        #     cand_patches = torch.from_numpy(cand_patches).float().to("cuda")
-        #     # torch.cuda.synchronize()
-        #     # end_time2 = time.time()
-        #     # print(end_time2 - start_time2)
-        #     bdist0 = (query_patches == cand_patches).sum().cpu().item()
-        # else:
-        bdist0 = np.count_nonzero(query_patches == cand_patches)
+        score = np.count_nonzero(query_patches == cand_patches)
 
-        return bdist0
+        return score
 
     def get_score_patch0(self, query_indices,  nlr):
         """
+        Loop version
         Gets the spatial matching score when using a patch around anchor points
         :param indices_resh:
         :param bdist0:
@@ -1219,96 +1064,12 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return bdist0
 
-    def create_query_vectors(self, hg, wg, vectors_query, array_geom_query, arr_size):# loop version
+    def train_nearest_neighbor(self, arr_size, vectors_query, hg, wg, nbrs_inst):
+        """Train Nearest Neighbor model for current query image.
+        """
         cnt = 0
-        for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
-            for cgjj in range(self.sblk, wg - self.sblk, 2):
-                if cnt == arr_size:
-                    break
-                center = (cgii, cgjj)
-                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
-                array_geom_query[cnt] = block_geom_query
-                cnt += 1
-        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
-        return array_geom_query
-
-    def select_method(self):
-        """Select the checked option from the available methods"""
-
-        if self.vggRadioButton.isChecked():
-            self.method = 'VGG16'
-        elif self.netvladRadioButton.isChecked():
-            self.method = 'NetVLAD'
-
-    def create_database(self):
-        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
-
-        from keras.models import Model
-        from vgg16_places_356 import VGG16_Places365
-        # from keras.applications.vgg16 import VGG16
-        # model = VGG16(weights='imagenet', include_top=False)
-        # load pre-trained network model
-        model = VGG16_Places365(weights='places', include_top=False)
-
-        use_gpu = self.useGpuCheckBox.checkState()
-
-        # define the models for each stage
-        model1_name = 'block5_conv2'
-        model2_name = 'block4_conv2'
-        model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
-        model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
-
-        # initialize variables
-        self.model1 = model1
-        self.model1_name = model1_name
-        self.ref_dir = self.reference_folder + '/'
-        self.model2 = model2
-        self.model2_name = model2_name
-        self.image_size1 = (224, 224)
-        self.image_size2 = (416, 416)
-        self.num_dim1 = 125
-        self.num_dim2 = 100
-        self.ns1 = 5000  # number of samples to train pca for stage I
-        self.ns2 = 5000  # number of samples to train pca for stage II
-        self.lblk = 4    # 9x9 (x 512) CNN cubes
-        self.sblk = 1    # 3x3 (x 512) CNN cubes
-        self.batch_size = 200  # set value according to RAM resources
-        self.filtered_kernels = np.arange(512)
-        self.filtered_kernels_geom = np.arange(512)
-        self.max_ncubes = 36
-        self.refresh_view()
-        self.create_db()
-
-    def warning_win(self, title, message1, message2):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(message1)
-        msg.setInformativeText(message2)
-        msg.setWindowTitle(title)
-        msg.exec_()
-
-    def train_nn(self, arr_size, vectors_query, hg, wg, nbrs_inst):
         array_geom_query = np.zeros((arr_size, 3, 3, 512))
-
-        # get spatially-aware vectors
-        # # vectorized version
-        # cutmeup_geom = as_strided(vectors_query,
-        #                     shape=(hg - 2 * self.sblk, hg - 2 * self.sblk, 512, 2 * self.sblk + 1, 2 * self.sblk + 1, 512),
-        #                     strides=2 * vectors_query.strides)[:, :, 0, :, :, :]
-        # kk = cutmeup_geom[::2, ::2]
-        # # kkg = pp.normalize(cutmeup_geom.reshape((hg - 2 * self.sblk)**2 * (2 * self.sblk + 1) ** 2, len(filtered_kernels)), norm='l2', axis=1)
-        # kkg2 = kk.reshape(((hg - 2 * self.sblk)//2)**2, (2 * self.sblk + 1) ** 2 * len(filtered_kernels))
-        # array_geom_query = np.asarray(self.pca_geom.transform(kkg2))
-        # nbrs = nbrs_inst.fit(array_geom_query)
-
-        # # loop version
-        # array_geom_query = self.create_query_vectors(hg, wg, vectors_query, array_geom_query, arr_size)
-
-        # cython version
-        # array_geom_query = create_query_vectors_cython(hg, wg, vectors_query, array_geom_query, self.sblk, arr_size, self.pca_geom)
-
-        cnt = 0
-        for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
+        for cgii in range(self.sblk, hg - self.sblk, 2):
             for cgjj in range(self.sblk, wg - self.sblk, 2):
                 if cnt == arr_size:
                     break
@@ -1316,7 +1077,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
                 array_geom_query[cnt] = block_geom_query
                 cnt += 1
-
         array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
 
         # train nearest neighbour for query
@@ -1325,8 +1085,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         return nbrs, array_geom_query
 
     def use_frame_corr(self, npf, pf_arr, cand, i):
-        # exploit frame correlation
-        wcand = 1
+        """Exploit frame time correlation to boost recognition precision"""
+
+        wcand = 1  # candidate initial weight
         if i >= npf and npf != 0:
             fmax = 15
             accfp = 0
@@ -1335,10 +1096,10 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 if len(pf_arr[:, 1]) == 1 or np.max(pf_arr[:, 1]) == 0:
                     strength = 1
                 else:
-                    #  contribution of each past event based on recognition score
+                    # contribution of each past event based on recognition score
                     strength = pf_arr[npf - kk - 1, 1] / np.max(pf_arr[:, 1])
 
-                #  consider only those candidates within +-fmax distance of the past recogntion being considered
+                # consider only those candidates within +-fmax distance of the past recognition being considered
                 if np.abs(cand - (pf_arr[npf - kk - 1, 0])) <= fmax:
                     contrib = strength * (self.cp / fmax * (fmax - np.abs(cand - (pf_arr[npf - kk - 1, 0]))))
                     accfp += contrib
@@ -1346,53 +1107,52 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     # select the maximum contribution
                     if contrib > max_accfp:
                         max_accfp = contrib
+
             wcand = 1 + max_accfp
+
         return wcand
 
+    # @time_decorator
     def compute_neighbors(self, candidates):
         indices_arr = []
         for c in range(0, self.ncand, 1):
             cand = candidates[c]
+
+            # retrieve spatially-aware vectors from spatial matching database
             array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
+
             # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
-            # distances, indices = nbrs.kneighbors(array_geom_db)
             indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
             indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
             indices_arr.append(indices_resh)
+
         return indices_arr
+
 
     def recognise_places(self):
         """Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
 
-        from multiprocessing import Lock, Pool
-#        from pathos.multiprocessing import ProcessingPool as Pool
-        from functools import partial
-
-        self.reset_controls()
-        self.refresh_view()
-
-        start0 = time.time()
-        import pathlib
-        import yaml
         from keras.models import Model
         from vgg16_places_356 import VGG16_Places365
-#         from keras.applications.vgg16 import VGG16
-#         model = VGG16(weights='imagenet', include_top=False)
-        from numpy import loadtxt
         from joblib import dump, load
+        # from multiprocessing import Lock, Pool
+        # # from pathos.multiprocessing import ProcessingPool as Pool
+        # from functools import partial
+        start0 = time.time()
+        self.reset_controls()
+        self.refresh_view()
 
         # load pre-trained network model
         model = VGG16_Places365(weights='places', include_top=False)
 
         # define the models for each stage
         dirname = self.test_folder + '/'
-        # method = 'vgg16'
         model1_name = 'block5_conv2'
         model2_name = 'block4_conv2'
         model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
         model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
 
-        self.ncand = int(self.candidatesLineEdit.text())
+        # set class variables
         self.lblk = 4
         self.sblk = 1
         self.model1 = model1
@@ -1400,8 +1160,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.dirname = dirname
         self.model2 = model2
         self.model2_name = model2_name
-        self.image_size1 = (int(self.imageWidthLineEdit_s1.text()), int(self.imageHeightLineEdit_s1.text()))
-        self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
         self.max_ncubes = 36        # number of CNN cubes used in stage I
         self.cp = 0.4               # experimental frame correlation factor
         self.spatch = 19            # number of activations per side of the patch in stage II
@@ -1526,26 +1284,27 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             vectors_query = vectors_query.reshape((side, side, 512))
             hg, wg, depthg = vgg16_feature_geom.shape[1], vgg16_feature_geom.shape[2], vgg16_feature_geom.shape[3]
 
-            # declare k-NN model
-#            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute')
-
-            # cosine distance gives slightly better precision tha euclidean
-            # nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
-
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
             min_dist[min_dist == 0] = 1E6
             self.blocks_per_side = side_eff
+
             nlr = int(side_eff * 0.75)  # make patch side approx 75 % of image width
             if nlr % 2 == 0:
                 nlr = nlr - 1
-            patch_size = nlr
             nlr2 = nlr // 2
+
+            # define candidate patches backbone, with a value of 0 in the center, negative to the left and up and positive to the right and down
+            # they define the position that matching features in query should have
             cand_indices = np.arange(self.blocks_per_side**2).reshape((self.blocks_per_side, self.blocks_per_side)) - self.blocks_per_side**2 // 2
-            candc0 = int(cand_indices.shape[1] / 2)
+            candc0 = int(cand_indices.shape[1] / 2)  # center coordinate
             cand_patch = cand_indices[candc0 - nlr2: candc0 + nlr2 + 1, candc0 - nlr2: candc0 + nlr2 + 1]
-            cand_patch = cand_patch - cand_patch[nlr2, nlr2]
-            cand_patches = np.stack([cand_patch  for i in range(self.blocks_per_side ** 2)], axis=0)
+            cand_patch = cand_patch - cand_patch[nlr2, nlr2]  # set patch elements so that center is zero
+            cand_patches = np.stack([cand_patch  for i in range(self.blocks_per_side ** 2)], axis=0)  # create a tensor of identical patches
+            #  example of resulting cand_patch for self.blocks_per_side = 3
+            # [-4, -3, -2]
+            # [-1,  0,  1]
+            # [ 2,  3,  4]
 
             # get maximum recognition score (as for identical images), which is used to calculate score percentage
             if i == 0:
@@ -1553,7 +1312,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 same_img_score = self.get_score_patch(indices0, cand_patches, nlr)
 
             # train nearest neighbor for current query
-            self.nbrs, array_geom_query = self.train_nn(arr_size, vectors_query, hg, wg, nbrs_inst)
+            self.nbrs, array_geom_query = self.train_nearest_neighbor(arr_size, vectors_query, hg, wg, nbrs_inst)
 
             # # multiprocessing
             # cand_chunks = [candidates[i::20] for i in range(20)]
@@ -1563,6 +1322,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # pool.close()
             # pool.join()
 
+            # get indices for matches in query image
             indices_arr = self.compute_neighbors(candidates)
 
             # loop over image filtering candidates
@@ -1571,15 +1331,16 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                  indices_resh = indices_arr[c]
 
                  # get score for current candidate
-                 bdist0 = self.get_score_patch(indices_resh, cand_patches, nlr)
+                 score = self.get_score_patch(indices_resh, cand_patches, nlr)
 
                  # exploit frame correlation
                  wcand = self.use_frame_corr(npf, pf_arr, cand, i)
 
                  # weight histogram bin taking past recognitions into account
-                 scores_hist[cand] = bdist0 * wcand
+                 scores_hist[cand] = score * wcand
 
-                 if i > 10 and i % 10 != 0 and bdist0 * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
+                 # early cut when checking for candidates if some threshold is surpassed
+                 if i > 10 and i % 10 != 0 and score * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
                      print(mean_score, c)
                      break
 
@@ -1587,9 +1348,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             hit = np.argmax(scores_hist)
             score = np.max(scores_hist)
 
-            # uncomment this to calculate steering (used for teach&play navigation based on VPR)
+            # uncomment this to calculate steering (used for teach & play navigation based on VPR)
             # steer = self.get_hor_offset_patch(nbrs_inst, array_geom_query, array_geom_db, nlr)
-#            print(np.round(steer*100, 2), '''%''')
+            # print(np.round(steer*100, 2), '''%''')
 
             # keep track of previously recognised events
             if npf != 0:
@@ -1635,7 +1396,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     precision = tpcnt / float(tpcnt + fpcnt)
                     recall = tpcnt / float(tpcnt + fncnt)
                     f1 = 2 * precision * recall / (precision + recall)
-                    self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2))
+                    self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2))
                     output.write(str(i) + "," + fpath + "," + "-1" + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "," + str(float(self.min_thresh)) + "\n")
 
             elif np.abs(hit - int(gt[self.img_no - int(min(im_numbers))])) <= self.ftol:
@@ -1645,7 +1406,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 precision = tpcnt / float(tpcnt + fpcnt)
                 recall = tpcnt / float(tpcnt + fncnt)
                 f1 = 2 * precision * recall / (precision + recall)
-                self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score,  np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
+                self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score,  np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
                 output.write(str(i) + "," + fpath + "," + str(hit) + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "\n")
 
             else:  # wrongly recognised (false positive)
@@ -1656,7 +1417,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     precision = tpcnt / float(tpcnt + fpcnt)
                     recall = tpcnt / float(tpcnt + fncnt)
                     f1 = 2 * precision * recall / (precision + recall)
-                    self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
+                    self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
                     output.write(str(i) + "," +  fpath + "," + str(hit) + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "\n")
 
             res.append((str(i), hit))
@@ -1669,9 +1430,44 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.textBrowser.append("Recognition finished")
         return accuracy, precision, recall, end0 - start0, np.round(np.mean(np.asarray(time_arr)), 2)
 
+    # horizontal offset calculation (not used)
+    def get_hor_offset_patch(self, nbrs_inst, array_geom_current, array_geom_db, nlr):
+        """Calculates the horizontal offset between query and recognized image.
+        It is used for visual servoing in navigation applications using SSM-VPR"""
+        # array_geom_db = self.vectors_local[np.where(self.image_numbers_local == hit)]
+        # train nearest neighbour
+        nbrs = nbrs_inst.fit(array_geom_current)
+        distances, indices = nbrs.kneighbors(array_geom_db)
+        indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+        eq_arr = np.zeros((self.blocks_per_side, self.blocks_per_side), bool)
+        steer_hist = np.zeros(2 * self.blocks_per_side, int)
+
+        # arange = np.arange(self.spatch ** 2).reshape((self.spatch, self.spatch)) - int((self.spatch ** 2 - 1) / 2)
+        arange = np.arange((2 * nlr + 1) ** 2).reshape(((2 * nlr + 1, 2 * nlr + 1))) - int(((2 * nlr + 1) ** 2 - 1) / 2)
+        # create array padded on the outside so that locations in near the border of the original array can be dealt with
+        # we fill it with a value of -1000 that we know never is going to match
+        indices_pad = np.pad(indices_resh, nlr, 'constant', constant_values=-1000)
+        for ci in range(nlr, indices_pad.shape[0] - nlr, 1):
+            for cj in range(nlr, indices_pad.shape[1] - nlr, 1):
+                ind_patch = indices_pad[ci - nlr: ci + nlr + 1, cj - nlr: cj + nlr + 1]
+                # eq_arr = (ind_patch == (arange + (indices_pad[ci, cj])))
+                # eq_arr[ci, cj] = False
+                match_idx = np.unravel_index(indices_resh[ci-nlr, cj-nlr], (self.blocks_per_side, self.blocks_per_side))
+                if match_idx[1] - (cj - nlr) >= 0:
+                    # steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.sum(eq_arr)
+                    steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
+                else:
+                    # steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.sum(eq_arr)
+                    steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
+
+        steer = np.argmax(steer_hist) - self.blocks_per_side
+        offset = np.round((float(steer)/self.blocks_per_side), 3)
+
+        return offset
+
 
 class Plot_PR_curves(QRunnable):
-
+    """Plotting of results as Precision-recall curves"""
     def __init__(self, frameTolLineEdit, pr_file):
         super(Plot_PR_curves, self).__init__()
         self.frameTolLineEdit = frameTolLineEdit
@@ -1792,6 +1588,5 @@ class Plot_PR_curves(QRunnable):
                 if data[i, 1] != 0:
                     auc = auc + data[i, 1]
         return auc
-
 
 
