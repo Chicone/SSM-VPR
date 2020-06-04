@@ -733,7 +733,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # prepare spatial matching arrays
             side = np.asarray(vgg16_feature_geom_arr).shape[2]
 
- #           side_eff = side // 2 - 1
+#            side_eff = side // 2 - 1
             side_eff = side - 2*self.sblk
             arr_size = side_eff ** 2
 
@@ -1256,18 +1256,18 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         return bdist0
 
 
-    def create_query_vectors(self, hg, wg, vectors_query, array_geom_query, arr_size):# loop version
-        cnt = 0
-        for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
-            for cgjj in range(self.sblk, wg - self.sblk, 2):
-                if cnt == arr_size:
-                    break
-                center = (cgii, cgjj)
-                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
-                array_geom_query[cnt] = block_geom_query
-                cnt += 1
-        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
-        return array_geom_query
+    # def create_query_vectors(self, hg, wg, vectors_query, array_geom_query, arr_size):# loop version
+    #     cnt = 0
+    #     for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
+    #         for cgjj in range(self.sblk, wg - self.sblk, 2):
+    #             if cnt == arr_size:
+    #                 break
+    #             center = (cgii, cgjj)
+    #             block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+    #             array_geom_query[cnt] = block_geom_query
+    #             cnt += 1
+    #     array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
+    #     return array_geom_query
 
     def select_method(self):
         """Select the checked option from the available methods"""
@@ -1287,13 +1287,13 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             model1_pt = models.vgg16(pretrained=True)
             model2_pt = models.vgg16(pretrained=True)
             model1_pt = model1_pt.features.to("cuda").eval()
-            model2_pt.features[0].stride = (2, 2)
+            # model2_pt.features[0].stride = (2, 2)
             model2_pt = model2_pt.features.to("cuda").eval()
         else:
             model1_pt = models.vgg16(pretrained=True)
             model2_pt = models.vgg16(pretrained=True)
             model1_pt = model1_pt.features.eval()
-            model2_pt.features[0].stride = (2, 2)
+            # model2_pt.features[0].stride = (2, 2)
             model2_pt = model2_pt.features.eval()
 
         self.model1_pt = model1_pt
@@ -1307,8 +1307,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # self.image_size2 = (448, 448)
         self.num_dim1 = 125
         self.num_dim2 = 100
-        self.ns1 = 5000  # number of samples to train pca for stage I
-        self.ns2 = 5000  # number of samples to train pca for stage II
+        self.ns1 = 3000  # number of samples to train pca for stage I
+        self.ns2 = 3000  # number of samples to train pca for stage II
         self.lblk = 4    # 9x9 (x 512) CNN cubes
         self.sblk = 1    # 3x3 (x 512) CNN cubes
         self.batch_size = 200  # set value according to RAM resources
@@ -1317,8 +1317,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.max_ncubes = 36
         self.refresh_view()
 
-        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
-        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(448), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(self.image_size1), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(self.image_size1), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
 
         self.create_db()
 
@@ -1370,8 +1370,10 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         msg.setWindowTitle(title)
         msg.exec_()
 
-    def train_nearest_neigh(self, arr_size, vectors_query, hg, wg, nbrs_inst):
+    def train_nearest_neighbor(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
         array_geom_query = np.zeros((arr_size, 3, 3, 512))
+        """Train Nearest Neighbor model for current query image.
+        """
 
         # get spatially-aware vectors
         # # vectorized version
@@ -1407,6 +1409,82 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return nbrs, array_geom_query
 
+    def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
+        """Train Nearest Neighbor model for current query image.
+        """
+        cnt = 0
+        array_geom_query = np.zeros((arr_size, 3, 3, 512))
+        for cgii in range(self.sblk, hg - self.sblk, 1):
+            for cgjj in range(self.sblk, wg - self.sblk, 1):
+                if cnt == arr_size:
+                    break
+                center = (cgii, cgjj)
+                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+                array_geom_query[cnt] = block_geom_query
+                cnt += 1
+        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
+        return array_geom_query
+
+    def use_frame_corr(self, npf, pf_arr, cand, i):
+        """Exploit frame time correlation to boost recognition precision"""
+
+        wcand = 1  # candidate initial weight
+        if i >= npf and npf != 0:
+            fmax = 15
+            accfp = 0
+            max_accfp = 0
+            for kk in range(npf):  # loop over past recognised events
+                if len(pf_arr[:, 1]) == 1 or np.max(pf_arr[:, 1]) == 0:
+                    strength = 1
+                else:
+                    # contribution of each past event based on recognition score
+                    strength = pf_arr[npf - kk - 1, 1] / np.max(pf_arr[:, 1])
+
+                # consider only those candidates within +-fmax distance of the past recognition being considered
+                if np.abs(cand - (pf_arr[npf - kk - 1, 0])) <= fmax:
+                    contrib = strength * (self.cp / fmax * (fmax - np.abs(cand - (pf_arr[npf - kk - 1, 0]))))
+                    accfp += contrib
+
+                    # select the maximum contribution
+                    if contrib > max_accfp:
+                        max_accfp = contrib
+
+            wcand = 1 + max_accfp
+
+        return wcand
+
+
+    # @time_decorator
+    def compute_neighbors(self, candidates, array_geom_query):
+        indices_arr = []
+        if torch.cuda.is_available():
+            array_geom_query = torch.from_numpy(array_geom_query)
+            array_geom_query = array_geom_query.to('cuda')
+            # self.vectors_local = torch.from_numpy(self.vectors_local)
+            # self.image_numbers_local = torch.from_numpy(self.image_numbers_local)
+            # self.vectors_local = self.vectors_local.to('cuda')
+            # self.image_numbers_local = self.image_numbers_local.to('cuda')
+        for c in range(0, self.ncand, 1):
+            cand = candidates[c]
+            array_geom_db = self.vectors_local[torch.nonzero(self.image_numbers_local == cand)].squeeze(dim=1)
+            indices = torch.matmul(array_geom_query, torch.transpose(array_geom_db, 0, 1).double())
+            indices = indices.cpu().numpy()
+            indices = np.argmin(1 - indices, axis=0)
+            indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+            indices_arr.append(indices_resh)
+            # # retrieve spatially-aware vectors from spatial matching database
+            # array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
+            #
+            # # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
+            # # indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
+            # indices = np.argmin(1 - np.inner(array_geom_query, array_geom_db), axis=0)
+            # # indices = np.argmin(1 - cosine_similarity(array_geom_query, array_geom_db), axis=0)
+            # indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+            # indices_arr.append(indices_resh)
+
+        return indices_arr
+
+
     def recognise_places(self):
         """
         Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)
@@ -1416,20 +1494,22 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         from torchvision import transforms as T
 
         self.refresh_view()
-        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(224), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
-        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(448), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(self.image_size1),
+                                      T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(self.image_size2),
+                                      T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
 
         if torch.cuda.is_available():
             model1_pt = models.vgg16(pretrained=True)
             model2_pt = models.vgg16(pretrained=True)
             model1_pt = model1_pt.features.to("cuda").eval()
-            model2_pt.features[0].stride = (2, 2)
+#            model2_pt.features[0].stride = (2, 2)
             model2_pt = model2_pt.features.to("cuda").eval()
         else:
             model1_pt = models.vgg16(pretrained=True)
             model2_pt = models.vgg16(pretrained=True)
             model1_pt = model1_pt.features.eval()
-            model2_pt.features[0].stride = (2, 2)
+#            model2_pt.features[0].stride = (2, 2)
             model2_pt = model2_pt.features.eval()
 
         self.model1_pt = model1_pt
@@ -1482,6 +1562,11 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         try:
             self.vectors_local = np.load('db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
             self.image_numbers_local = np.load('db/' + self.dataset_name + '_stage2_imgnum_'  + self.imageWidthLineEdit_s2.text() + '.npy')
+            if torch.cuda.is_available():
+                self.vectors_local = torch.from_numpy(self.vectors_local)
+                self.image_numbers_local = torch.from_numpy(self.image_numbers_local)
+                self.vectors_local = self.vectors_local.to('cuda')
+                self.image_numbers_local = self.image_numbers_local.to('cuda')
         except:
             self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
             return 0
@@ -1574,7 +1659,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             hg, wg, depthg = vgg16_feature_geom.shape[1], vgg16_feature_geom.shape[2], vgg16_feature_geom.shape[3]
 
             # declare k-NN model
-            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute',leaf_size=500, metric='cosine')
+#            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute',leaf_size=500, metric='cosine')
 
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
@@ -1599,60 +1684,28 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 same_img_score = self.get_score_patch(indices0, cand_patches, nlr)
 
             # train nearest neighbor for current query
-            nbrs, array_geom_query = self.train_nearest_neigh(arr_size, vectors_query, hg, wg, nbrs_inst)
+            # self.nbrs, array_geom_query = self.train_nearest_neighbor(arr_size, vectors_query, hg, wg, nbrs_inst)
+            array_geom_query = self.get_query_geom_descrip(arr_size, vectors_query, hg, wg)
             acc_time = 0
+
+            indices_arr = self.compute_neighbors(candidates, array_geom_query)
+
             # loop over image filtering candidates
             for c in range(0, self.ncand, 1):
                  cand = candidates[c]
+                 indices_resh = indices_arr[c]
 
-                 # retrieve spatially-aware vectors from SMDB for current candidate
-                 array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
-
-                 start_time2 = time.time()
-
-                 # for each query vector, find the distances and indices of the nearest vectors in the current candidate
-                 distances, indices = nbrs.kneighbors(array_geom_db)
-
-                 end_time2 = time.time()
-                 acc_time += end_time2 - start_time2
-                 if c == self.ncand - 1:
-                     # print(end_time2 - start_time2)
-                     print(acc_time)
-
-
-                 indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
 
                  # get score for current candidate
-                 bdist0 = self.get_score_patch(indices_resh, cand_patches,  nlr)
+                 score = self.get_score_patch(indices_resh, cand_patches,  nlr)
 
                  # exploit frame correlation
-                 wcand = 1
-                 if i >= npf and npf != 0:
-                     fmax = 15
-                     accfp = 0
-                     max_accfp = 0
-                     for kk in range(npf):  # loop over past recognised events
-                         if len(pf_arr[:, 1]) == 1 or np.max(pf_arr[:, 1]) == 0:
-                             strength = 1
-                         else:
-                             #  contribution of each past event based on recognition score
-                             strength = pf_arr[npf - kk - 1, 1] / np.max(pf_arr[:, 1])
-
-                         #  consider only those candidates within +-fmax distance of the past recogntion being considered
-                         if np.abs(cand - (pf_arr[npf-kk-1, 0])) <= fmax:
-                             contrib = strength * (self.cp / fmax * (fmax - np.abs(cand - (pf_arr[npf-kk-1, 0]))))
-                             accfp += contrib
-
-                             # select the maximum contribution
-                             if contrib > max_accfp:
-                                 max_accfp = contrib
-
-                     wcand = 1 + max_accfp
+                 wcand = self.use_frame_corr(npf, pf_arr, cand, i)
 
                  # weight histogram bin taking past recognitions into account
-                 scores_hist[cand] = bdist0 * wcand
+                 scores_hist[cand] = score * wcand
 
-                 if i > 10 and i % 10 != 0 and bdist0 * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
+                 if i > 10 and i % 10 != 0 and score * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
                      print(mean_score, c)
                      break
 
