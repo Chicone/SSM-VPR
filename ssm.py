@@ -573,8 +573,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         """
 
 
-        print("training PCA with " + str(ns1) + " sample descriptors...")
-        self.textBrowser.append(str('{}'.format("training PCA with " + str(ns1) + " sample descriptors...")))
+        print("training PCA with sample descriptors...")
+        self.textBrowser.append(str('{}'.format("training PCA with sample descriptors...")))
         QApplication.processEvents()
         pca = None
         if ns2 > len(geom_array):
@@ -1064,7 +1064,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return bdist0
 
-    def train_nearest_neighbor(self, arr_size, vectors_query, hg, wg, nbrs_inst):
+    def train_nearest_neighbor(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
         """Train Nearest Neighbor model for current query image.
         """
         cnt = 0
@@ -1082,7 +1082,25 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # train nearest neighbour for query
         nbrs = nbrs_inst.fit(array_geom_query)
 
-        return nbrs, array_geom_query
+        # return nbrs, array_geom_query
+        return array_geom_query
+
+    def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
+        """Train Nearest Neighbor model for current query image.
+        """
+        cnt = 0
+        array_geom_query = np.zeros((arr_size, 3, 3, 512))
+        for cgii in range(self.sblk, hg - self.sblk, 2):
+            for cgjj in range(self.sblk, wg - self.sblk, 2):
+                if cnt == arr_size:
+                    break
+                center = (cgii, cgjj)
+                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+                array_geom_query[cnt] = block_geom_query
+                cnt += 1
+        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
+        return array_geom_query
+
 
     def use_frame_corr(self, npf, pf_arr, cand, i):
         """Exploit frame time correlation to boost recognition precision"""
@@ -1113,7 +1131,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         return wcand
 
     # @time_decorator
-    def compute_neighbors(self, candidates):
+    def compute_neighbors(self, candidates, array_geom_query):
         indices_arr = []
         for c in range(0, self.ncand, 1):
             cand = candidates[c]
@@ -1122,7 +1140,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
 
             # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
-            indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
+            # indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
+            indices = np.argmin(1 - np.inner(array_geom_query, array_geom_db), axis=0)
+            # indices = np.argmin(1 - cosine_similarity(array_geom_query, array_geom_db), axis=0)
             indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
             indices_arr.append(indices_resh)
 
@@ -1229,7 +1249,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         npf = self.npf   # number of previous frames considered
         pf_arr = np.zeros((npf, 2))
         same_img_score = 1E6
-        nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine', )
+#        nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
 
         for i, fpath in enumerate(filenames):
 
@@ -1312,7 +1332,10 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 same_img_score = self.get_score_patch(indices0, cand_patches, nlr)
 
             # train nearest neighbor for current query
-            self.nbrs, array_geom_query = self.train_nearest_neighbor(arr_size, vectors_query, hg, wg, nbrs_inst)
+            # self.nbrs, array_geom_query = self.train_nearest_neighbor(arr_size, vectors_query, hg, wg, nbrs_inst)
+
+            # get spatial matching descriptors for query
+            array_geom_query = self.get_query_geom_descrip(arr_size, vectors_query, hg, wg)
 
             # # multiprocessing
             # cand_chunks = [candidates[i::20] for i in range(20)]
@@ -1323,7 +1346,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # pool.join()
 
             # get indices for matches in query image
-            indices_arr = self.compute_neighbors(candidates)
+#            indices_arr = self.compute_neighbors(candidates)
+            indices_arr = self.compute_neighbors(candidates, array_geom_query)
 
             # loop over image filtering candidates
             for c in range(0, self.ncand, 1):
