@@ -1,5 +1,4 @@
 import cv2
-# from matplotlib.tests.test_category import ax
 import ssmbase
 import glob
 from PyQt5.QtWidgets import QApplication, QMessageBox
@@ -9,10 +8,6 @@ from sklearn.decomposition import PCA
 import sklearn.preprocessing as pp
 from sklearn.neighbors import NearestNeighbors
 import random
-from keras.applications.resnet50 import preprocess_input
-from keras import backend as K
-import tensorflow as tf
-import netvlad_tf.nets as nets
 import csv
 import time
 import about
@@ -29,8 +24,6 @@ from PIL import Image
 from sklearn.feature_extraction import image
 import netvlad_model
 import skimage.measure
-from netvlad_model import NetVLAD
-from netvlad_model import EmbedNet
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -623,13 +616,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.textBrowser.append(str('{}  {}'.format(ncubes,  " cubes where created per image")))
 
         return descrip_array, im_numbers
-
-    def prepare_img(self, fpath, image_size):
-        im = cv2.imread(fpath)
-        img_data = cv2.resize(im, image_size, interpolation=cv2.INTER_CUBIC)
-        img_data = np.expand_dims(img_data, axis=0)
-        img_data = preprocess_input(img_data)
-        return img_data
 
     def get_img_no(self, fname):
         """gets the right image number from image filename"""
