@@ -464,7 +464,7 @@ class Ui_MainWindow(object):
         self.btnPRcurves.setGeometry(QtCore.QRect(30, 70, 91, 27))
         self.btnPRcurves.setObjectName("btnPRcurves")
         self.groupBox_12 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_12.setGeometry(QtCore.QRect(390, 30, 171, 151))
+        self.groupBox_12.setGeometry(QtCore.QRect(390, 30, 171, 221))
         self.groupBox_12.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -501,7 +501,7 @@ class Ui_MainWindow(object):
         self.label_5.setText("Frame corr. (FC)")
         self.label_5.setObjectName("label_5")
         self.gpuGroupBox = QtWidgets.QGroupBox(self.centralwidget)
-        self.gpuGroupBox.setGeometry(QtCore.QRect(390, 280, 171, 161))
+        self.gpuGroupBox.setGeometry(QtCore.QRect(390, 310, 171, 131))
         self.gpuGroupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -527,7 +527,7 @@ class Ui_MainWindow(object):
         self.loadDbOnGpuCheckBox.setGeometry(QtCore.QRect(10, 40, 141, 22))
         self.loadDbOnGpuCheckBox.setObjectName("loadDbOnGpuCheckBox")
         self.useGpuCheckBox = QtWidgets.QCheckBox(self.centralwidget)
-        self.useGpuCheckBox.setGeometry(QtCore.QRect(390, 250, 96, 22))
+        self.useGpuCheckBox.setGeometry(QtCore.QRect(390, 280, 96, 22))
         self.useGpuCheckBox.setObjectName("useGpuCheckBox")
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
