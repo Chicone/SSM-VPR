@@ -35,15 +35,15 @@ The functionality of the different panels in the GUI are as follows:
 - Console: Presents recognition output and metrics such as precision, recall, recognition score or average latency. Each displayed record can be clicked, causing the corresponding images being updated in the visuallization panel. It is therefore possible to navigate through all past recognitions and to visually check the output.
 
 ## Installation
-The code has been tested on Ubuntu 18.04 Bionic and Python 3.6.6.
+The code has been tested on Ubuntu 18.04 Bionic, Python 3.6.6,  Torch 1.5.0 and Cuda 10.2.
 For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
-  __csv, cv2, keras, matplotlib, numpy, PyQt5, random, sklearn, tensorflow, tkinter, time__ 
+  __csv, cv2, matplotlib, numpy, PyQt5, PIL, random, shutil, skimage, sklearn,  tkinter, time, torch, torchvision__ 
 
 To start the GUI, cd from the command line into the project's main directory and type 
 ```bash
 python3 ssmapp.py
 ```
-To use NetVLAD in stage I, it is necesary to download file vd16_pitts30k_conv5_3_vlad_preL2_intra_white.zip contaning the model from [here](http://imr.ciirc.cvut.cz/uploads/Datasets/vd16_pitts30k_conv5_3_vlad_preL2_intra_white.zip). Then, extract the containing files into the /checkpoints directory.
+__To use this software it is necesary to download each model' weights__ from [here](http://imr.ciirc.cvut.cz/uploads/Datasets/vd16_pitts30k_conv5_3_vlad_preL2_intra_white.zip). Then, extract the containing files into the /checkpoints directory.
 
 ## Datasets
 If you want to reproduce the main results of our paper "Visual Place Recognition by Spatial Matching of High-level CNN Features", the employed image datasets can be downloaded from [here](http://imr.ciirc.cvut.cz/Datasets/Ssm-vpr).  
