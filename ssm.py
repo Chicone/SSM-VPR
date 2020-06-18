@@ -1274,9 +1274,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         """
 
-        """Stage I for the VGG16 implementation.
-        It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
-
         img_hist = np.zeros(self.no_places, float)  # initialise histogram of distances
         h, w, depth = stage1_activ.shape[1], stage1_activ.shape[2], stage1_activ.shape[3]
         self.channels = np.arange(depth)
