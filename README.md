@@ -43,7 +43,7 @@ To start the GUI, cd from the command line into the project's main directory and
 ```bash
 python3 ssmapp.py
 ```
-__To use this software it is necesary to download each model' weights__ from [here](http://imr.ciirc.cvut.cz/uploads/Datasets/vd16_pitts30k_conv5_3_vlad_preL2_intra_white.zip). Then, extract the containing files into the /checkpoints directory.
+__To use this software, it is necesary to download each model' weights__ from [here](http://imr.ciirc.cvut.cz/uploads/Datasets/checkpoints.zip). Then, extract the containing files into the /checkpoints directory.
 
 ## Datasets
 If you want to reproduce the main results of our paper "Visual Place Recognition by Spatial Matching of High-level CNN Features", the employed image datasets can be downloaded from [here](http://imr.ciirc.cvut.cz/Datasets/Ssm-vpr).  
