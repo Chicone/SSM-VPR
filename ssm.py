@@ -1,4 +1,5 @@
 import cv2
+# from matplotlib.tests.test_category import ax
 import ssmbase
 import glob
 from PyQt5.QtWidgets import QApplication, QMessageBox
@@ -21,7 +22,15 @@ import tkinter
 from tkinter import filedialog, Tk, messagebox
 from shutil import copyfile
 from matplotlib import pyplot as plt
+import torch
+import torchvision.models as models
+from torchvision import transforms as T
+from PIL import Image
 from sklearn.feature_extraction import image
+import netvlad_model
+import skimage.measure
+from netvlad_model import NetVLAD
+from netvlad_model import EmbedNet
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -36,39 +45,40 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig)
 
-#import matplotlib.pyplot as plt
 print ("OpenCV v" + cv2.__version__)
 
-def time_decorator(decorated):
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        output = decorated(*args, **kwargs)
-        end = time.time()
-        print(decorated.__name__ + " took " + str(round((end - start), 5)) + " seconds")
-        return output
-    return wrapper
-
-
 class ssm_MainWindow(ssmbase.Ui_MainWindow):
-    """ Main class for GUI and VPR"""
-
+    """ """
     def setupUi(self, MainWindow):
-        """ Sets up the VPR user interface default parameters."""
+        """ Sets up the VPR user interface  default parameters."""
         ssmbase.Ui_MainWindow.setupUi(self, MainWindow)
 
         self.threadpool = QThreadPool()
         # print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
-        self.method = 'VGG16'
+
+        self.method1 = 'VGG16'
+        self.method2 = 'VGG16'
+
+
         self.reference_folder = str()
         self.test_folder = str()
         self.ground_truth_file = str()
         self.recognition_paused = False
         self.recognition_continued = False
         self.recognition_stopped = False
+
         self.useGpuCheckBox.setChecked(1)
+        self.useGpuCheckBox.setToolTip('Enables/disables the use of GPU')
+        self.loadDbOnGpuCheckBox.setChecked(1)
+        self.loadDbOnGpuCheckBox.setToolTip('If enough GPU memory is available, enabling this feature speeds up recognition.')
+        self.gpuCandLineEdit.setToolTip('Maximum number of candidates loaded on GPU at a time.'
+                                        ' Please use a fraction of the total number of candidates to reduce GPU memory requirements')
+
         self.actionAbout.triggered.connect(self.showAboutBox)
+
         self.textBrowser.append("OpenCV v" + cv2.__version__)
         self.path = None
+        # self.actionSave_path.triggered.connect(self.savePath)
         self.stopSignal = False
 
         # stage I
@@ -80,11 +90,47 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.vggRadioButton.click()
         self.netvladRadioButton.setDisabled(0)
         self.vggRadioButton.toggled.connect(self.refresh_view)
+        self.vggRadioButton.setToolTip('Uses the VGG16 architecture trained from scratch on the Places365 dataset.'
+                                          ' Based on experiments, descriptors are created from the activations of layer'
+                                          ' "conv5_2".')
         self.netvladRadioButton.toggled.connect(self.refresh_view)
+        self.netvladRadioButton.setToolTip('Uses NetVLAD architecture trained on the Pittsburg 30k dataset.')
+        self.resnetRadioButton.toggled.connect(self.refresh_view)
+        self.resnetRadioButton.setToolTip('Uses ResNet-152 architecture trained from scratch on the Places365 dataset.'
+                                          ' Based on experiments, descriptors are created from the activations of layer'
+                                          ' "SpatialConvolution_121".')
+        self.googlenetRadioButton.toggled.connect(self.refresh_view)
+        self.googlenetRadioButton.setToolTip('Uses GoogLeNet architecture trained from scratch on the Places365 dataset.'
+                                             ' Based on experiments, descriptors are created from the activations of layer'
+                                             ' "inception_3a_output" ')
+
+        self.pcaDimLineEdit_s1.setToolTip('Number of PCA components during compression')
+        self.pcaDimLineEdit_s1.textChanged.connect(self.refresh_view)
+        self.pcaSamplesLineEdit_s1.setToolTip('Number of samples extracted from reference images and used to train PCA')
+        self.pcaSamplesLineEdit_s1.textChanged.connect(self.refresh_view)
+
+
 
         # stage II
         self.imageWidthLineEdit_s2.returnPressed.connect(self.refresh_view)
         self.imageHeightLineEdit_s2.returnPressed.connect(self.refresh_view)
+
+        self.vggRadioButton_s2.setDisabled(0)
+        self.vggRadioButton_s2.click()
+        self.imageSizeGroupBox_s1.setEnabled(False)
+        self.vggRadioButton_s2.toggled.connect(self.refresh_view)
+        self.vggRadioButton_s2.setToolTip('Uses the VGG16 architecture trained from scratch on the Places365 dataset.'
+                                          ' Based on experiments, descriptors are created from the activations of layer'
+                                          ' "conv4_2".')
+        self.resnetRadioButton_s2.toggled.connect(self.refresh_view)
+        self.resnetRadioButton_s2.setToolTip('Uses ResNet-152 architecture trained from scratch on the Places365 dataset.'
+                                          ' Based on experiments, descriptors are created from the activations of layer'
+                                          ' "to be determined".')
+        self.googlenetRadioButton_s2.toggled.connect(self.refresh_view)
+        self.googlenetRadioButton_s2.setToolTip('Uses GoogLeNet architecture trained from scratch on the Places365 dataset.'
+                                             ' Based on experiments, descriptors are created from the activations of layer'
+                                             ' "to be determined" ')
+
 
         self.candidatesLineEdit.setToolTip('Number of candidates  selected in STAGE I (use 1 to consider that stage only')
         self.candidatesLineEdit.returnPressed.connect(self.refresh_view)
@@ -92,35 +138,64 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.frameTolLineEdit.setToolTip('Number of frames (\u00B1) that are considered as belonging to the same place')
         self.frameTolLineEdit.returnPressed.connect(self.refresh_view)
 
-        self.earlyCutLineEdit.setToolTip('Adds (>0) or subtracts (<0) to the average recognition score, setting the threshold for early cut of candidates. Units are in standard deviations of the score.')
-        self.earlyCutLineEdit.returnPressed.connect(self.refresh_view)
+        # self.earlyCutLineEdit.setToolTip('Adds (>0) or subtracts (<0) to the average recognition score, setting the threshold for early cut of candidates. Units are in standard deviations of the score.')
+        # self.earlyCutLineEdit.returnPressed.connect(self.refresh_view)
 
-        self.prevFramesLineEdit.setToolTip('Number of frames previous to current recognition used to improve recognition (use 0 to disable time correlation)')
+        self.prevFramesLineEdit.setToolTip('Number of frames previous to current recognition used to improve recognition (use 0 to disable frame correlation)')
         self.prevFramesLineEdit.returnPressed.connect(self.refresh_view)
+
+        self.pcaDimLineEdit_s2.setToolTip('Number of PCA components during compression')
+        self.pcaDimLineEdit_s2.textChanged.connect(self.refresh_view)
+        self.pcaSamplesLineEdit_s2.setToolTip('Number of samples extracted from reference images and used to train PCA')
+        self.pcaSamplesLineEdit_s2.textChanged.connect(self.refresh_view)
 
         # select files
         self.btnLoadReference.clicked.connect(self.search_for_dir_path_reference)
         self.btnLoadTest.clicked.connect(self.search_for_dir_path_query)
         self.btnLoadGroungTruth.clicked.connect(self.search_for_file_path_ground_truth)
 
+        # hardcoded for quick testing
+        self.reference_folder = "/data/Datasets/Kudamm_icra/Reference"
+        self.refOkLabel.setText(self.reference_folder)
+        self.test_folder = "/data/Datasets/Kudamm_icra/Live"
+        self.testOkLabel.setText(self.test_folder)
+        self.ground_truth_file = os.path.dirname(self.test_folder) + '/GroundTruth.csv'
+        self.groundTruthOkLabel.setText(self.ground_truth_file)
+
         # run
-        self.btnCreateDB.clicked.connect(self.create_databases)
+        self.btnCreateDB.clicked.connect(self.create_database)
         self.btnRecognition.clicked.connect(self.recognise_places)
 
         # controls
+        # self.btnPause.clicked.connect(self.pause_recognition)
         self.btnPause.clicked.connect(self.pause_continue)
+        # self.btnContinue.clicked.connect(self.continue_recognition)
         self.btnStop.clicked.connect(self.stop_recognition)
 
         # output
         self.btnSaveOutput.clicked.connect(self.save_output)
+
+        # worker = Plot_PR_curves(self.frameTolLineEdit.text())
+        # self.threadpool.start(worker)
+        # self.btnPRcurves.clicked.connect(self.plot_PR_curves)
         self.btnPRcurves.clicked.connect(self.set_plot_thread)
 
         # gpu
         self.useGpuCheckBox.clicked.connect(self.use_gpu)
+        self.loadDbOnGpuCheckBox.clicked.connect(self.use_gpu)
+        self.gpuCandLineEdit.setText(str(int(self.candidatesLineEdit.text()) // 10))
+        self.gpuCandLineEdit.textChanged.connect(self.refresh_view)
+
 
         # console
+        # self.textBrowser.setOpenExternalLinks(False)
         self.textBrowser.setOpenLinks(False)
         self.textBrowser.anchorClicked.connect(self.on_anchor_clicked)
+        # self.textBrowser.anchorMouseOver.connect(self.on_anchor_clicked)
+        # self.textBrowser.getCursor(self.line_clicked)
+
+        # self.targetSigmaLineEdit.returnPressed.connect(self.refresh_view)
+
 
     def showAboutBox(self):
         ab = about.AboutForm()
@@ -131,7 +206,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         Reads all the parameters currently displayed on the GUI
         """
         try:
-            # image sizes
+            # make image sizes square
             self.imageHeightLineEdit_s1.setText(self.imageWidthLineEdit_s1.text())
             self.imageHeightLineEdit_s2.setText(self.imageWidthLineEdit_s2.text())
 
@@ -139,13 +214,24 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
 
             # method
-            self.select_method()
+            self.select_method_stage1()
+            self.select_method_stage2()
+
 
             # paramaters
             self.ncand = int(self.candidatesLineEdit.text())
             self.ftol = int(self.frameTolLineEdit.text())
             self.npf = int(self.prevFramesLineEdit.text())
-            self.ecut = float(self.earlyCutLineEdit.text())
+            # self.ecut = float(self.earlyCutLineEdit.text())
+
+            # PCA
+            self.num_dim1 = int(self.pcaDimLineEdit_s1.text())
+            self.num_dim2 = int(self.pcaDimLineEdit_s2.text())
+            self.ns1 = int(self.pcaSamplesLineEdit_s1.text())
+            self.ns2 = int(self.pcaSamplesLineEdit_s2.text())
+
+            # GPU
+            self.gpu_max_candidates = int(self.gpuCandLineEdit.text())
 
         except Exception as e:
             self.textBrowser.append("Error: " + str(e))
@@ -157,7 +243,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         """
 
         try:
-
             pic = cv2.imread(img_path)
             pic = cv2.resize(pic, (224, 224))
             qimage = QtGui.QImage(pic, pic.shape[0], pic.shape[1], 3*pic.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
@@ -313,7 +398,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         options['defaultextension'] = '.txt'
         # options['filetypes'] = fileTypes
         options['initialdir'] = 'output'
-        options['initialfile'] = (self.dataset_name + '_' +  self.method + '-'   # image retrieval method (stage I) \
+        options['initialfile'] = (self.dataset_name + '_' +  self.method1 + '_' +  self.method2 + '-'   # image retrieval method (stage I) \
                                  + str(self.image_size1[0]) + '_'               # stage I image size \
                                  + str(self.image_size2[0]) + '_'               # stage II image size \
                                  + str(self.candidatesLineEdit.text()) + '_'    # number of candidates \
@@ -335,12 +420,21 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.warning_win('Warning', 'A figure is currently being displayed.', 'Please, close it first.')
             # return 0
 
+    # def use_gpu(self):
+    #     if self.useGpuCheckBox.checkState() == 0:
+    #         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    #         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    #     else:
+    #         pass
+
     def use_gpu(self):
-        if self.useGpuCheckBox.checkState() == 0:
-            os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-            os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        if not self.useGpuCheckBox.isChecked():
+            self.gpuGroupBox.setEnabled(False)
         else:
-            pass
+            self.gpuGroupBox.setEnabled(True)
+            self.refresh_view()
+
+
 
     def on_anchor_clicked(self, url):
         print("Line clicked")
@@ -356,25 +450,179 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # if hasattr(self,function):
             #     getattr(self,function)()
 
-    def select_method(self):
-        """Select the checked option from the available methods"""
+    def get_stage1_vgg16_descrip(self, fnames,  all_activ_arr):
+        """
+        Creates VGG16 descriptors (trained on Places365 dataset) for Stage I of the system
 
-        if self.vggRadioButton.isChecked():
-            self.method = 'VGG16'
-        elif self.netvladRadioButton.isChecked():
-            self.method = 'NetVLAD'
+        Parameters
+        ----------
+        fnames          : List of file names to create features from
+        vgg16_activ_arr : Array of activations
+        h               : Feature map height
+        w               : Feature map width
 
-    def warning_win(self, title, message1, message2):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(message1)
-        msg.setInformativeText(message2)
-        msg.setWindowTitle(title)
-        msg.exec_()
+        Returns
+        -------
+        descrip_array   : Array of descriptors for all images
+        im_numbers      : Array of image identifiers
+        """
 
+        h, w, depth = all_activ_arr[0].shape[1], all_activ_arr[0].shape[2], all_activ_arr[0].shape[3]
+        self.channels = np.arange(depth)
+        descrip_array = []
+        im_numbers = []
+        max_ncubes = self.max_ncubes
+        for idx, fname in enumerate(fnames):
+            img_activ_arr = all_activ_arr[idx]
+            img_activ_arr = np.moveaxis(img_activ_arr[0, :, :, self.channels], 0, -1)
 
+            # count how many cubes there are for current image size
+            ncubes = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    ncubes += 1
 
-#####  Functions for Visual Place Recogniton  #######
+            # reduce the number of cubes if required
+            if ncubes > max_ncubes:
+                mask = np.random.choice(ncubes, max_ncubes, replace=False)
+            else:
+                mask = np.arange(max_ncubes)
+
+            # create descriptors by sliding the layer's activations  vertically and horizontally
+            cnt2 = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    # skipt blocks not selected in the mask
+                    if cnt2 not in mask:
+                        cnt2 += 1
+                        continue
+                    center = (cii, cjj)
+                    block = img_activ_arr[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                    block_descrip = pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten()
+                    descrip_array.append(block_descrip)
+                    img_no = self.get_img_no(fname)
+                    im_numbers.append(img_no)
+                    cnt2 += 1
+        print(ncubes, " cubes where created per image")
+        self.textBrowser.append(str('{}  {}'.format(ncubes,  " cubes where created per image")))
+
+        return descrip_array, im_numbers
+
+    def get_stage1_resnet_descrip(self, fnames,  all_activ_arr):
+        """
+        Creates ResNet-152 descriptors (trained on Places365 dataset) for Stage I of the system
+
+        Parameters
+        ----------
+        fnames          : List of file names to create features from
+        vgg16_activ_arr : Array of activations
+        h               : Feature map height
+        w               : Feature map width
+
+        Returns
+        -------
+        descrip_array   : Array of descriptors for all images
+        im_numbers      : Array of image identifiers
+        """
+
+        h, w, depth = all_activ_arr[0].shape[1], all_activ_arr[0].shape[2], all_activ_arr[0].shape[3]
+        self.channels = np.arange(depth)
+        descrip_array = []
+        im_numbers = []
+        max_ncubes = self.max_ncubes
+        for idx, fname in enumerate(fnames):
+            img_activ_arr = all_activ_arr[idx]
+            img_activ_arr = np.moveaxis(img_activ_arr[0, :, :, self.channels], 0, -1)
+
+            # count how many cubes there are for current image size
+            ncubes = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    ncubes += 1
+
+            # reduce the number of cubes if required
+            if ncubes > max_ncubes:
+                mask = np.random.choice(ncubes, max_ncubes, replace=False)
+            else:
+                mask = np.arange(max_ncubes)
+
+            # create descriptors by sliding the layer's activations  vertically and horizontally
+            cnt2 = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    # skipt blocks not selected in the mask
+                    if cnt2 not in mask:
+                        cnt2 += 1
+                        continue
+                    center = (cii, cjj)
+                    block = img_activ_arr[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                    block_descrip = pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten()
+                    descrip_array.append(block_descrip)
+                    img_no = self.get_img_no(fname)
+                    im_numbers.append(img_no)
+                    cnt2 += 1
+        print(ncubes, " cubes where created per image")
+        self.textBrowser.append(str('{}  {}'.format(ncubes,  " cubes where created per image")))
+
+        return descrip_array, im_numbers
+
+    def get_stage1_googlenet_descrip(self, fnames,  all_activ_arr):
+        """
+        Creates GoogLeNet descriptors (trained on Places365 dataset) for Stage I of the system
+
+        Parameters
+        ----------
+        fnames          : List of file names to create features from
+        vgg16_activ_arr : Array of activations
+        h               : Feature map height
+        w               : Feature map width
+
+        Returns
+        -------
+        descrip_array   : Array of descriptors for all images
+        im_numbers      : Array of image identifiers
+        """
+
+        h, w, depth = all_activ_arr[0].shape[1], all_activ_arr[0].shape[2], all_activ_arr[0].shape[3]
+        self.channels = np.arange(depth)
+        descrip_array = []
+        im_numbers = []
+        max_ncubes = self.max_ncubes
+        for idx, fname in enumerate(fnames):
+            img_activ_arr = all_activ_arr[idx]
+            img_activ_arr = np.moveaxis(img_activ_arr[0, :, :, self.channels], 0, -1)
+
+            # count how many cubes there are for current image size
+            ncubes = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    ncubes += 1
+
+            # reduce the number of cubes if required
+            if ncubes > max_ncubes:
+                mask = np.random.choice(ncubes, max_ncubes, replace=False)
+            else:
+                mask = np.arange(max_ncubes)
+
+            # create descriptors by sliding the layer's activations  vertically and horizontally
+            cnt2 = 0
+            for cii in range(self.lblk, h - self.lblk, 1):
+                for cjj in range(self.lblk, w - self.lblk, 1):
+                    # skipt blocks not selected in the mask
+                    if cnt2 not in mask:
+                        cnt2 += 1
+                        continue
+                    center = (cii, cjj)
+                    block = img_activ_arr[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                    block_descrip = pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten()
+                    descrip_array.append(block_descrip)
+                    img_no = self.get_img_no(fname)
+                    im_numbers.append(img_no)
+                    cnt2 += 1
+        print(ncubes, " cubes where created per image")
+        self.textBrowser.append(str('{}  {}'.format(ncubes,  " cubes where created per image")))
+
+        return descrip_array, im_numbers
 
     def prepare_img(self, fpath, image_size):
         im = cv2.imread(fpath)
@@ -388,19 +636,447 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         img_no = int(''.join(map(str, [int(s) for s in os.path.splitext(fname)[0] if s.isdigit()])))
         return img_no
 
-    def prepare_NetVLAD(self):
-        # prepare NetVLAD model
-        tf.reset_default_graph()
-        image_batch = tf.placeholder(dtype=tf.float32, shape=[None, None, None, 3])
+    def train_pca(self, db_array, geom_array, ns1, ns2, netvlad_ns1):
+        """
+        Trains PAC models for  stages I and II
+        :param db_array: Vectors for stage I
+        :param geom_array: Vectors for stage II
+        :param ns1: Max number of samples for stage I
+        :param ns2: Max number of samples for stage II
+        :return pca, pca_geom: pca models
+        """
 
-        net_out = nets.vgg16NetvladPca(image_batch)
-        saver = tf.train.Saver()
+        print("training PCA...")
+        self.textBrowser.append(str('{}'.format("training PCA...")))
+        QApplication.processEvents()
+        pca = None
+        if ns2 > len(geom_array):
+            ns2 = len(geom_array)
 
-        sess = tf.Session()
-        saver.restore(sess, nets.defaultCheckpoint())
-        return image_batch, net_out, sess
+        if len(db_array) > ns1:
+            if self.method1 == 'NetVLAD':
+                pass
+                # if netvlad_ns1 > 4096: netvlad_ns1 = 4096
+                # mask = np.random.choice([False, True], len(db_array), p=[1 - ns1 / len(db_array), ns1 / len(db_array)])
+                # pca = PCA(n_components=netvlad_ns1, svd_solver='full', whiten=True).fit(db_array[np.where(mask == True)])
 
-    def printEvaluation(self, color, index, accuracy, precision, recall, f1, fpath, score, tpi=None, file=None, gt=None):
+            elif self.method1 == 'VGG16':
+                # select samples randomly for stage I
+                mask = np.random.choice([False, True], len(db_array), p=[1 - ns1 / len(db_array), ns1 / len(db_array)])
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array[np.where(mask ==True)])
+            elif self.method1 == 'ResNet':
+                # select samples randomly for stage I
+                mask = np.random.choice([False, True], len(db_array), p=[1 - ns1 / len(db_array), ns1 / len(db_array)])
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array[np.where(mask ==True)])
+            elif self.method1 == 'GoogLeNet':
+                # select samples randomly for stage I
+                mask = np.random.choice([False, True], len(db_array), p=[1 - ns1 / len(db_array), ns1 / len(db_array)])
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array[np.where(mask ==True)])
+
+            # select samples randomly for stage II
+            mask_geom = np.random.choice([False, True], len(geom_array), p=[1 - ns2 / len(geom_array), ns2 / len(geom_array)])
+            pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array[np.where(mask_geom == True)])
+        else:
+            if self.method1 == 'NetVLAD':
+                pass
+                # if netvlad_ns1 > 4096: netvlad_ns1 = 4096
+                # pca = PCA(n_components=netvlad_ns1, svd_solver='full', whiten=True).fit(db_array)
+            elif self.method1 == 'VGG16':
+                # perform pca on all samples
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array)
+            elif self.method1 == 'ResNet':
+                # perform pca on all samples
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array)
+            elif self.method1 == 'GoogLeNet':
+                # perform pca on all samples
+                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array)
+
+            if len(geom_array) > ns2:
+                # select samples randomly for stage II
+                mask_geom = np.random.choice([False, True], len(geom_array), p=[1 - ns2 / len(geom_array), ns2 / len(geom_array)])
+                pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array[np.where(mask_geom == True)])
+            else:
+                # perform pca on all samples                                                           len(db_array) / len(geom_array)])
+                pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array)
+
+        return pca, pca_geom
+
+    def forward1(self, x, conv4_2, conv5_2):
+        results = []
+        for ii, model in enumerate(self.model1_pt):
+            x = model(x)
+            if ii in {conv4_2, conv5_2}:
+                results.append(x)
+                if ii == conv5_2:
+                    break
+        return results
+
+    def forward2(self, x, conv4_2, conv5_2):
+        results = []
+        for ii, model in enumerate(self.model2_pt):
+            x = model(x)
+            if ii in {conv4_2, conv5_2}:
+                results.append(x)
+                if ii == conv5_2:
+                    break
+        return results
+
+    def create_base_and_netvlad_models(self):
+        base_model_dim = 512
+        num_clusters = 64
+        vladv2 = True
+        base_model = models.vgg16(pretrained=True)
+
+        # capture only feature part and remove last relu and maxpool
+        layers = list(base_model.features.children())[:-2]
+
+        # only train conv5_1, conv5_2, and conv5_3
+        for l in layers[:-5]:
+            for p in l.parameters():
+                p.requires_grad = False
+
+        base_model = torch.nn.Sequential(*layers)
+        net_vlad = netvlad_model.NetVLAD(num_clusters=num_clusters, dim=base_model_dim, vladv2=vladv2)
+
+        # model = torch.nn.Module()
+        # model.add_module('encoder', encoder)
+        # net_vlad = netvlad_pth.NetVLAD(num_clusters=num_clusters, dim=encoder_dim, vladv2=vladv2)
+        # model.add_module('pool', net_vlad)
+
+#        checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/vgg16_netvlad_checkpoint/checkpoints/checkpoint.pth.tar',
+#                                map_location=lambda storage, loc: storage)
+#        model.load_state_dict(checkpoint['state_dict'], strict=False)
+        return base_model, net_vlad
+
+
+    def calc_pca(self, dir_fnames):
+        """
+        Calculates the pca models for stages I and II using  self.batch_size random number of images from the reference dataset
+
+        Parameters
+        ----------
+        dir_fnames: List of file names in the reference sequence
+
+        Returns
+        -------
+        stage1_pca, stage2_pca : PCA models for both stages
+
+        """
+
+        stage1_activ_arr = []
+        stage2_activ_arr = []
+        im_numbers_netvlad = []
+        n_imgs = len(dir_fnames)  # number of images
+
+        # select random images and no more than batch_size
+        if n_imgs > self.batch_size:
+            n_imgs = self.batch_size
+        ran_fnames = random.sample(dir_fnames, n_imgs)
+
+        # get activations for stages I and II
+        for idx, fname in enumerate(ran_fnames):
+            if idx % 1 == 0:
+                print(idx , fname, "PCA: calculating activations...")
+                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: calculating activations...")) )
+                QApplication.processEvents()
+
+            fpath = self.ref_dir + fname
+            img_no = self.get_img_no(fname)
+            im_numbers_netvlad.append(img_no)
+
+            # get and store activations
+            stage1_activ, stage2_activ = self.get_pytorch_tensors(fpath)
+
+            # maxpool the layer to make it compatible with code
+            if self.method1 != 'NetVLAD':
+                if stage1_activ.shape[1] > 14:
+                    red_factor = stage1_activ.shape[1] // 14
+                    stage1_activ = skimage.measure.block_reduce(stage1_activ, (1, red_factor, red_factor, 1), np.max)
+                elif stage1_activ.shape[1] < 14:
+                    # TODO upsample array to make it compatible with size 14x14
+                    pass
+
+            stage1_activ_arr.append(stage1_activ)
+            stage2_activ_arr.append(stage2_activ)
+
+        # get features for stage I
+        if self.method1 == 'VGG16':
+            stage1_descrip_arr, im_numbers = self.get_stage1_vgg16_descrip(ran_fnames, stage1_activ_arr)
+        elif self.method1 == 'NetVLAD':
+            stage1_descrip_arr = np.squeeze(stage1_activ_arr, axis=1)
+        elif self.method1 == 'ResNet':
+            stage1_descrip_arr, im_numbers = self.get_stage1_resnet_descrip(ran_fnames, stage1_activ_arr)
+        elif self.method1 == 'GoogLeNet':
+            stage1_descrip_arr, im_numbers = self.get_stage1_googlenet_descrip(ran_fnames, stage1_activ_arr)
+
+        stage1_descrip_arr = np.asarray(stage1_descrip_arr)
+
+        # prepare spatial matching arrays
+        stage2_activ_arr = np.asarray(stage2_activ_arr)
+        side = stage2_activ_arr.shape[2]
+        side_eff = side - 2 * self.sblk
+        arr_size = side_eff ** 2
+
+        stage2_descrip_arr = np.zeros((len(ran_fnames) * arr_size + 1, 3 * 3 * stage2_activ_arr.shape[4]))
+        hg, wg, depthg = stage2_activ_arr.shape[2], stage2_activ_arr.shape[3], stage2_activ_arr.shape[4]
+        self.channels_geom = np.arange(depthg)
+
+        cnt_geom_arr = 0
+        im_numbers_local = []
+        # get features for stage II
+        for idx, fname in enumerate(ran_fnames):
+            if idx % 1 == 0:
+                print(idx, fname, "PCA: creating spatial matching features...")
+                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: creating spatial matching features...")) )
+                QApplication.processEvents()
+
+            img_no = self.get_img_no(fname)
+            stage2_activ = stage2_activ_arr[idx]
+            filter_sel_geom = pp.normalize(np.moveaxis(stage2_activ[0, :, :, self.channels_geom], 0, -1).reshape(side * side, depthg), norm='l2', axis=1)
+            filter_sel_geom = filter_sel_geom.reshape((side, side, depthg))
+            cnt = 0
+            for cgii in range(self.sblk, hg - self.sblk, 1):  # note that stride is 2
+                for cgjj in range(self.sblk, wg - self.sblk, 1):  # note that stride is 2
+                    if cnt == arr_size:
+                        break
+                    center = (cgii, cgjj)
+                    block_geom = filter_sel_geom[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]
+                    block_descrip_geom = block_geom.reshape((2 * self.sblk + 1) ** 2, depthg).flatten()
+                    stage2_descrip_arr[cnt_geom_arr] = block_descrip_geom
+                    im_numbers_local.append(img_no)
+                    cnt_geom_arr += 1
+                    cnt += 1
+
+        # train pca
+        stage1_pca, stage2_pca = self.train_pca(stage1_descrip_arr, stage2_descrip_arr, self.ns1, self.ns2, len(ran_fnames) )
+
+        return stage1_pca, stage2_pca
+
+    def get_pytorch_tensors(self, fpath):
+        """
+        Get pytorch tensors for selected layers in the network
+
+        Parameters
+        ----------
+        fpath: path to file
+
+        Returns: activation tensors for stage I and II
+        -------
+
+        """
+
+        input_image = Image.open(fpath)
+        input_tensor1 = self.preprocess1(input_image)
+        input_tensor2 = self.preprocess2(input_image)
+        input_batch1 = input_tensor1.unsqueeze(0)
+        input_batch2 = input_tensor2.unsqueeze(0)
+
+        # move the input and model to GPU for speed if available
+        if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+            input_batch1 = input_batch1.to('cuda')
+            input_batch2 = input_batch2.to('cuda')
+
+        # results1 = self.forward1(input_batch1, 19, 26)  # conv_4-2 and conv_5-2
+        # results2 = self.forward2(input_batch2, 19, 26)  # conv_4-2 and conv_5-2        #
+        with torch.no_grad():
+            results1 = self.model_stage1.forward1(input_batch1)  # one feature per image
+            if self.method1 == 'NetVLAD':
+                stage1_activ = results1.cpu().numpy()
+            else:
+                stage1_activ = results1.permute(0, 2, 3, 1).cpu().numpy()
+
+            results2 = self.model_stage2.forward2(input_batch2)  # forward2 defined in the model class
+            stage2_activ = results2.permute(0, 2, 3, 1).cpu().numpy()
+
+            # if self.method == 'VGG16':
+            #     results1 = self.model_vgg16.forward1(input_batch1)  # forward1 defined in the model class
+            #     results2 = self.model_vgg16.forward2(input_batch2)  # forward2 defined in the model class
+            #     stage1_activ = results1.permute(0, 2, 3, 1).cpu().numpy()
+            #     stage2_activ = results2.permute(0, 2, 3, 1).cpu().numpy()
+            # elif self.method == 'NetVLAD':
+            #     results1 = self.model_netvlad.forward(input_batch1)  # one feature per image
+            #     results2 = self.model_vgg16.forward2(input_batch2)  # forward2 defined in the model class
+            #     stage1_activ = results1.cpu().numpy()
+            #     stage2_activ = results2.permute(0, 2, 3, 1).cpu().numpy()
+            # elif self.method == 'ResNet':
+            #     results1 = self.model_resnet.forward1(input_batch1)  # forward1 defined in the model class
+            #     results2 = self.model_vgg16.forward2(input_batch2)  # forward2 defined in the model class
+            #     stage1_activ = results1.permute(0, 2, 3, 1).cpu().numpy()
+            #     stage2_activ = results2.permute(0, 2, 3, 1).cpu().numpy()
+            # elif self.method == 'GoogLeNet':
+            #     results1 = self.model_googlenet.forward1(input_batch1)  # forward1 defined in the model class
+            #     results2 = self.model_vgg16.forward2(input_batch2)  # forward2 defined in the model class
+            #     stage1_activ = results1.permute(0, 2, 3, 1).cpu().numpy()
+            #     stage2_activ = results2.permute(0, 2, 3, 1).cpu().numpy()
+
+        del input_batch1
+        del input_batch2
+
+        return stage1_activ, stage2_activ
+
+    def create_db(self):
+        """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
+        in files vectors.npy (stage I) and vectors_local.npy (stage II)"""
+
+        from joblib import dump, load
+
+        # skip if db already exists
+        self.dataset_name = os.path.split(os.path.split(self.reference_folder)[0])[1]
+        try:
+            f = open('./db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.npy')
+            f = open('./db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.npy')
+            self.textBrowser.append('{} '.format("STAGE I: database of descriptors already existed and loaded"))
+            try:
+                f = open('./db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '_' + self.method2 + '.npy')
+                f = open('./db/'  + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2 +  '.npy')
+                self.textBrowser.append('{} '.format("STAGE II: database of descriptors already existed and loaded"))
+                return 0
+            except:
+                pass
+        except:
+            pass
+
+        # # extract dataset name
+        # dset_name = os.path.split(os.path.split(self.ref_dir[:-1])[0])[1]
+
+        # get filenames
+        dir_fnames = [d for d in os.listdir(self.ref_dir)]
+        dir_fnames.sort()
+
+        # number of batches (batches are required due to limited RAM, nothing to do with CNN batches)
+        n_batches = int(np.ceil(len(dir_fnames) / self.batch_size))
+
+        # train and save pca models
+        pca, pca_geom = self.calc_pca(dir_fnames)
+
+        if self.method1 == 'NetVLAD':
+            pass
+            # dump(pca, 'pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_NetVLAD.joblib')
+        else:
+            dump(pca, 'pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.joblib')
+
+        dump(pca_geom, 'pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2 + '.joblib')
+
+
+        stage1_projection_acc = []
+        im_numbers_acc = []
+        stage2_projection_acc = []
+        im_numbers_local_acc = []
+        for b in range(n_batches):
+            if b == n_batches - 1:
+                dirb = dir_fnames[b * self.batch_size: len(dir_fnames)]
+            else:
+                dirb = dir_fnames[b * self.batch_size: b*self.batch_size + self.batch_size]
+
+            stage1_activ_arr = []
+            stage2_activ_arr = []
+            im_numbers_netvlad = []
+            for idx, fname in enumerate(dirb):
+                if idx % 1 == 0:
+                    print(idx + b * self.batch_size, fname, "calculating activations...")
+                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "calculating activations...")))
+                    QApplication.processEvents()
+
+                fpath = self.ref_dir + fname
+                img_no = self.get_img_no(fname)
+                im_numbers_netvlad.append(img_no)
+
+                stage1_activ, stage2_activ = self.get_pytorch_tensors(fpath)
+
+                # maxpool the layer to make it compatible with code
+                if self.method1 != 'NetVLAD':
+                    if stage1_activ.shape[1] > 14:
+                        red_factor = stage1_activ.shape[1] // 14
+                        stage1_activ = skimage.measure.block_reduce(stage1_activ, (1, red_factor, red_factor, 1), np.max)
+                    elif stage1_activ.shape[1] < 14:
+                        # TODO upsample array to make it compatible with size 14x14
+                        pass
+                #
+                # if self.method == 'NetVLAD':
+                #      pass
+                # elif self.method == 'VGG16':
+                stage1_activ_arr.append(stage1_activ)
+
+                stage2_activ_arr.append(stage2_activ)
+
+            if self.method1 == 'VGG16':
+                stage1_descrip_arr, im_numbers = self.get_stage1_vgg16_descrip(dirb, stage1_activ_arr)
+            elif self.method1 == 'NetVLAD':
+                # image_batch, net_out, sess = self.prepare_NetVLAD()
+                # db_array = self.add_baseline_netvlad(dirb, sess, net_out, image_batch)
+                stage1_descrip_arr = np.squeeze(stage1_activ_arr, axis=1)
+                im_numbers = im_numbers_netvlad
+            elif self.method1 == 'ResNet':
+                stage1_descrip_arr, im_numbers = self.get_stage1_resnet_descrip(dirb, stage1_activ_arr)
+            elif self.method1 == 'GoogLeNet':
+                stage1_descrip_arr, im_numbers = self.get_stage1_googlenet_descrip(dirb, stage1_activ_arr)
+
+            stage1_descrip_arr = np.asarray(stage1_descrip_arr)
+
+            # prepare spatial matching arrays
+            stage2_activ_arr = np.asarray(stage2_activ_arr)
+            hg, wg, depthg = stage2_activ_arr.shape[2], stage2_activ_arr.shape[3], stage2_activ_arr.shape[4]
+            side = hg
+            # side_eff = side // 2 - 1
+            side_eff = side - 2 * self.sblk
+            arr_size = side_eff ** 2
+
+            self.channels_geom = np.arange(depthg)
+            geom_array = np.zeros((len(dirb)*arr_size, 3 * 3 * depthg))
+
+            cnt_geom_arr = 0
+            im_numbers_local = []
+            for idx, fname in enumerate(dirb):
+                if idx % 1 == 0:
+                    print(idx + b * self.batch_size, fname, "creating spatial matching features...")
+                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "creating spatial matching features...")))
+                    QApplication.processEvents()
+                img_no = self.get_img_no(fname)
+                stage2_activ = stage2_activ_arr[idx]
+
+                # normalize along the direction of feature maps
+                filter_sel_geom = pp.normalize(np.moveaxis(stage2_activ[0, :, :, self.channels_geom], 0, -1).
+                                               reshape(side*side, depthg),  norm='l2', axis=1)
+                filter_sel_geom = filter_sel_geom.reshape((side, side, depthg))
+
+                # create  CNN cubes
+                cnt = 0
+                for cgii in range(self.sblk, hg - self.sblk, 1):
+                    for cgjj in range(self.sblk, wg - self.sblk, 1):
+                        if cnt == arr_size:
+                            break
+                        center = (cgii, cgjj)
+                        block_geom = filter_sel_geom[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]
+                        block_descrip_geom = block_geom.reshape((2 * self.sblk + 1) ** 2, depthg).flatten()
+                        geom_array[cnt_geom_arr] = block_descrip_geom
+                        im_numbers_local.append(img_no)
+                        cnt_geom_arr += 1
+                        cnt += 1
+
+            # Perform pca
+            if self.method1 == 'NetVLAD':  # if NetVLAD, do not perform PCA
+                stage1_projection = stage1_descrip_arr
+            else:
+                stage1_projection = pca.transform(stage1_descrip_arr)
+
+            stage2_projection = pca_geom.transform(geom_array)
+
+            # store batches
+            stage1_projection_acc.append(stage1_projection)
+            im_numbers_acc.append(im_numbers)
+            stage2_projection_acc.append(stage2_projection)
+            im_numbers_local_acc.append(im_numbers_local)
+
+        # save databases to disk
+        np.save('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1, np.vstack(stage1_projection_acc).astype('float32'))
+        np.save('db/' + self.dataset_name + '_stage1_imgnum_'  + self.imageWidthLineEdit_s1.text() + '_' + self.method1, np.hstack(im_numbers_acc))
+        np.save('db/' + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2, np.vstack(stage2_projection_acc).astype('float32'))
+        np.save('db/' + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2, np.hstack(im_numbers_local_acc))
+        self.textBrowser.append('{} '.format("Database of CNN descriptors created"))
+
+        return 0
+
+    def PrintEvaluation(self, color, index, accuracy, precision, recall, f1, fpath, score, tpi=None, file=None, gt=None):
         """[summary]
 
         Arguments:
@@ -483,418 +1159,32 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.textBrowser.append(clickable_str)
         QApplication.processEvents()
 
-
-    ##### offline part (database creation) ####
-
-    def add_baseline_vgg16(self, fnames,  vgg16_feature_arr, h, w):
+    def get_candidates_vgg16(self, stage1_activ, im_numbers, nbrs0):
         """
-        Creates VGG features for Stage I of the system
-        :param fnames: List of image file names on which to create features
-        :param vgg16_feature_arr: Activations from VGG16 layer
-        :param h: Height
-        :param w: Width
-        :return:
-        """
-        db_array = []
-        im_numbers = []
-        for idx, fname in enumerate(fnames):
-            vgg16_feature_np = vgg16_feature_arr[idx]
-            filter_sel = np.moveaxis(vgg16_feature_np[0, :, :, self.filtered_kernels], 0, -1)
+        It provides the list of candidates (and distances) from IFDB by comparing VGG descriptors of the current query
 
-            # count how many cubes there are for current image size
-            ncubes = 0
-            for cii in range(self.lblk, h - self.lblk, 1):
-                for cjj in range(self.lblk, w - self.lblk, 1):
-                    ncubes += 1
+        Parameters
+        ----------
+        stage1_activ: Descriptor
+        im_numbers  : Reference image indexes
+        channels    : Number of feature maps
+        nbrs0       : Nearest Neighbor model
 
-            max_ncubes = self.max_ncubes
-            if ncubes > max_ncubes:
-                mask = np.random.choice(ncubes, max_ncubes, replace=False)
-            else:
-                mask = np.arange(max_ncubes)
+        Returns
+        -------
+        candidates  : The list of best candidates from the reference database
+        cand_dist   : The vector distances between candidates and query
+        img_hist    : The histogram of reference images
 
-            # create descriptors by sliding the layer's activations  vertically and horizontally
-            cnt2 = 0
-            for cii in range(self.lblk, h - self.lblk, 1):
-                for cjj in range(self.lblk, w - self.lblk, 1):
-                    # skipt blocks not selected in the mask
-                    if cnt2 not in mask:
-                        cnt2 += 1
-                        continue
-                    center = (cii, cjj)
-                    block = filter_sel[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
-                    block_descrip = pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.filtered_kernels)), norm='l2', axis=1).flatten()
-                    db_array.append(block_descrip)
-                    img_no = self.get_img_no(fname)
-                    im_numbers.append(img_no)
-                    cnt2 += 1
-        # print(ncubes, np.asarray(im_numbers).shape[0]/len(fnames))
-        return np.asarray(db_array), im_numbers
-
-    def add_baseline_netvlad(self, fnames,  sess, net_out, image_batch):
-        """
-        Creates NetVLAD features for Stage I of the system
-        :param fnames: List of filenames on which to create features
-        :param sess: From prepare_NetVLAD()
-        :param net_out: From prepare_NetVLAD()
-        :param image_batch: From prepare_NetVLAD()
-        :return:
-        """
-        db_array = []
-        im_numbers = []
-        fnames.sort()
-        for idx, fname in enumerate(fnames):
-            if idx % 1 == 0:
-                print(idx, fname, 'calculating NetVLAD descriptors...')
-                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, 'calculating NetVLAD descriptors...')) )
-                QApplication.processEvents()
-
-            fpath = self.ref_dir + fname
-            im = cv2.imread(fpath)
-            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-            im = cv2.resize(im, self.image_size1, interpolation=cv2.INTER_CUBIC)
-            im = np.expand_dims(im, axis=0)
-
-            # get and store descriptor and image number
-            descriptor = sess.run(net_out, feed_dict={image_batch: im})
-            img_no = self.get_img_no(fname)
-            db_array.append(descriptor.flatten())
-            im_numbers.append(img_no)
-        return db_array, im_numbers
-
-    def train_pca(self, db_array, geom_array, ns1, ns2):
-        """
-        Trains PCA models for  stages I and II
-        :param db_array: Vectors for stage I
-        :param geom_array: Vectors for stage II
-        :param ns1: Max number of samples for stage I
-        :param ns2: Max number of samples for stage II
-        :return pca, pca_geom: pca models
         """
 
-
-        print("training PCA with sample descriptors...")
-        self.textBrowser.append(str('{}'.format("training PCA with sample descriptors...")))
-        QApplication.processEvents()
-        pca = None
-        if ns2 > len(geom_array):
-            ns2 = len(geom_array)
-
-        if len(db_array) > ns1:
-            if self.method == 'NetVLAD':  # pca not needed (self-implemented)
-                pass
-            elif self.method == 'VGG16':
-                # select samples randomly for stage I
-                mask = np.random.choice([False, True], len(db_array), p=[1 - ns1 / len(db_array), ns1 / len(db_array)])
-                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array[np.where(mask ==True)])
-
-            # select samples randomly for stage II
-            mask_geom = np.random.choice([False, True], len(geom_array), p=[1 - ns2 / len(geom_array), ns2 / len(geom_array)])
-            pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array[np.where(mask_geom == True)])
-        else:
-            if self.method == 'NetVLAD':  # pca not needed (self-implemented)
-                pass
-            elif self.method == 'VGG16':
-                # perform pca on all samples
-                pca = PCA(n_components=self.num_dim1, svd_solver='full', whiten=True).fit(db_array)
-
-            if len(geom_array) > ns2:
-                # select samples randomly for stage II
-                mask_geom = np.random.choice([False, True], len(geom_array), p=[1 - ns2 / len(geom_array), ns2 / len(geom_array)])
-                pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array[np.where(mask_geom == True)])
-            else:
-                # perform pca on all samples                                                           len(db_array) / len(geom_array)])
-                pca_geom = PCA(n_components=self.num_dim2, svd_solver='full', whiten=True).fit(geom_array)
-
-        return pca, pca_geom
-
-    def calc_pca(self, dir_fnames):
-        """Calculates the PCA models for stages I and II using  self.batch_size random number of images from the reference dataset
-        :param list dir_fnames: List of filenames in the reference sequence
-        """
-        vgg16_feature_arr = []
-        vgg16_feature_geom_arr = []
-        n_imgs = len(dir_fnames)  # number of images
-
-        # select random images and no more than batch_size
-        if n_imgs > self.batch_size:
-            n_imgs = self.batch_size
-        ran_fnames = random.sample(dir_fnames, n_imgs)
-
-        # get activations for stages I and II
-        for idx, fname in enumerate(ran_fnames):
-            if idx % 1 == 0:
-                print(idx, fname, "PCA: calculating activations...")
-                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: calculating activations...")) )
-                QApplication.processEvents()
-            fpath = self.ref_dir + fname
-
-            # prepare image resolutions
-            img_data1 = self.prepare_img(fpath, self.image_size1)  # stage I
-            img_data2 = self.prepare_img(fpath, self.image_size2)  # stage II
-
-            if self.method == 'NetVLAD':
-                pass
-            elif self.method == 'VGG16':
-                vgg16_feature = self.model1.predict(img_data1)
-                vgg16_feature_np = np.array(vgg16_feature)
-                vgg16_feature_arr.append(vgg16_feature_np)
-
-            # get activations from layer
-            vgg16_feature_geom = self.model2.predict(img_data2)
-            vgg16_feature_np_geom = np.array(vgg16_feature_geom)
-            vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
-
-        # get features for stage I
-        if self.method == 'NetVLAD':
-            image_batch, net_out, sess = self.prepare_NetVLAD()
-            db_array, im_numbers = self.add_baseline_netvlad(ran_fnames, sess, net_out, image_batch)
-        elif self.method == 'VGG16':
-            h, w, depth = vgg16_feature_np.shape[1], vgg16_feature_np.shape[2], vgg16_feature_np.shape[3]
-            db_array, im_numbers = self.add_baseline_vgg16(ran_fnames, vgg16_feature_arr, h, w)
-
-        vgg16_feature_geom_arr = np.asarray(vgg16_feature_geom_arr)
-
-        # prepare spatial matching arrays
-        side = vgg16_feature_geom_arr.shape[2]
-        side_eff = side // 2 - 1  # reduce to half to account for the stride of 2
-        arr_size = side_eff ** 2
-
-        geom_array = np.zeros((len(ran_fnames) * arr_size + 1, 4608))
-
-        cnt_geom_arr = 0
-        im_numbers_local = []
-        # get features for stage II
-        for idx, fname in enumerate(ran_fnames):
-            if idx % 1 == 0:
-                print(idx, fname, "PCA: creating spatial matching features...")
-                self.textBrowser.append(str('{:<5}  {}  {}'.format(idx, fname, "PCA: creating spatial matching features...")) )
-                QApplication.processEvents()
-
-            img_no = self.get_img_no(fname)
-            vgg16_feature_np_geom = vgg16_feature_geom_arr[idx]
-            filter_sel_geom = pp.normalize(np.moveaxis(vgg16_feature_np_geom[0, :, :, self.filtered_kernels_geom], 0, -1).reshape(side * side, 512), norm='l2', axis=1)
-            filter_sel_geom = filter_sel_geom.reshape((side, side, 512))
-            hg, wg, depthg = vgg16_feature_np_geom.shape[1], vgg16_feature_np_geom.shape[2], vgg16_feature_np_geom.shape[3]
-            cnt = 0
-            for cgii in range(self.sblk, hg - self.sblk, 2):  # note that stride is 2
-                for cgjj in range(self.sblk, wg - self.sblk, 2):  # note that stride is 2
-                    if cnt == arr_size:
-                        break
-                    center = (cgii, cgjj)
-                    block_geom = filter_sel_geom[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]
-                    block_descrip_geom = block_geom.reshape((2 * self.sblk + 1) ** 2, depthg).flatten()
-                    geom_array[cnt_geom_arr] = block_descrip_geom
-                    im_numbers_local.append(img_no)
-                    cnt_geom_arr += 1
-                    cnt += 1
-
-        # train pca
-        pca, pca_geom = self.train_pca(db_array, geom_array, self.ns1, self.ns2)
-        return pca, pca_geom, db_array
-
-    def create_descriptors(self):
-        """Create CNN descriptors for stages I and II. Scans a directory of images and stores the CNN representation
-        in files vectors.npy (stage I) and vectors_local.npy (stage II)"""
-
-        from joblib import dump, load
-
-        # skip if db already exists
-        self.dataset_name = os.path.split(os.path.split(self.reference_folder)[0])[1]
-        try:
-            f = open('./db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
-            f = open('./db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
-            self.textBrowser.append('{} '.format("STAGE I: database of descriptors already existed and loaded"))
-            try:
-                f = open('./db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
-                f = open('./db/'  + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text() +  '.npy')
-                self.textBrowser.append('{} '.format("STAGE II: database of descriptors already existed and loaded"))
-                return 0
-            except:
-                pass
-        except:
-            pass
-
-        # get filenames
-        dir_fnames = [d for d in os.listdir(self.ref_dir)]
-        dir_fnames.sort()
-
-        # number of batches (batches are required due to limited RAM)
-        n_batches = int(np.ceil(len(dir_fnames) / self.batch_size))
-
-        # train and save PCA models
-        pca, pca_geom, db_array = self.calc_pca(dir_fnames)
-
-        if self.method == 'NetVLAD':
-             pass  # NetVLAD does its own PCA
-        elif self.method == 'VGG16':
-            dump(pca, 'pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_VGG16.joblib')
-
-        # dump(pca_geom, 'pca/pca' + '_' + 'stage2.joblib')
-        dump(pca_geom, 'pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_VGG16.joblib')
-
-        projection_acc = []
-        im_numbers_acc = []
-        im_numbers_local_acc = []
-        projection_geom_acc = []
-        for b in range(n_batches):
-            if b == n_batches - 1:
-                dirb = dir_fnames[b * self.batch_size: len(dir_fnames)]
-            else:
-                dirb = dir_fnames[b * self.batch_size: b*self.batch_size + self.batch_size]
-
-            vgg16_feature_arr = []
-            vgg16_feature_geom_arr = []
-            for idx, fname in enumerate(dirb):
-                if idx % 1 == 0:
-                    print(idx + b * self.batch_size, fname, "calculating activations...")
-                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "calculating activations...")))
-                    QApplication.processEvents()
-
-                fpath = self.ref_dir + fname
-
-                # prepare both image resolutions
-                img_data1 = self.prepare_img(fpath, self.image_size1)
-                img_data2 = self.prepare_img(fpath, self.image_size2)
-
-                if self.method == 'NetVLAD':
-                    pass
-                elif self.method == 'VGG16':
-                    vgg16_feature = self.model1.predict(img_data1)
-                    vgg16_feature_np = np.array(vgg16_feature)
-                    vgg16_feature_arr.append(vgg16_feature_np)
-
-                vgg16_feature_geom = self.model2.predict(img_data2)
-                vgg16_feature_np_geom = np.array(vgg16_feature_geom)
-                vgg16_feature_geom_arr.append(vgg16_feature_np_geom)
-
-            if self.method == 'NetVLAD':
-                image_batch, net_out, sess = self.prepare_NetVLAD()
-                db_array, im_numbers = self.add_baseline_netvlad(dirb, sess, net_out, image_batch)
-            elif self.method == 'VGG16':
-                h, w, depth = vgg16_feature_np.shape[1], vgg16_feature_np.shape[2], vgg16_feature_np.shape[3]
-                db_array, im_numbers = self.add_baseline_vgg16(dirb, vgg16_feature_arr, h, w)
-            db_array = np.asarray(db_array)
-
-            # prepare spatial matching arrays
-            side = np.asarray(vgg16_feature_geom_arr).shape[2]
-
-            side_eff = side // 2 - 1
-            arr_size = side_eff ** 2
-
-            geom_array = np.zeros((len(dirb)*arr_size, 4608))
-
-            cnt_geom_arr = 0
-            im_numbers_local = []
-
-            for idx, fname in enumerate(dirb):
-                if idx % 1 == 0:
-                    print(idx + b * self.batch_size, fname, "creating spatial matching features...")
-                    self.textBrowser.append(str('{:<5}  {}  {}'.format(idx + b * self.batch_size, fname, "creating spatial matching features...")))
-                    QApplication.processEvents()
-                img_no = self.get_img_no(fname)
-                vgg16_feature_np_geom = vgg16_feature_geom_arr[idx]
-
-                # normalize along the direction of feature maps
-                filter_sel_geom = pp.normalize(np.moveaxis(vgg16_feature_np_geom[0, :, :, self.filtered_kernels_geom], 0, -1).
-                                               reshape(side*side, 512),  norm='l2', axis=1)
-                filter_sel_geom = filter_sel_geom.reshape((side, side, 512))
-                hg, wg, depthg = vgg16_feature_np_geom.shape[1], vgg16_feature_np_geom.shape[2], vgg16_feature_np_geom.shape[3]
-
-                # create  CNN cubes
-                cnt = 0
-                for cgii in range(self.sblk, hg - self.sblk, 2):  # stride 2 to reduce complexity
-                    for cgjj in range(self.sblk, wg - self.sblk, 2):  # stride 2 to reduce complexity
-                        if cnt == arr_size:
-                            break
-                        center = (cgii, cgjj)
-                        block_geom = filter_sel_geom[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]
-                        block_descrip_geom = block_geom.reshape((2 * self.sblk + 1) ** 2, depthg).flatten()
-                        geom_array[cnt_geom_arr] = block_descrip_geom
-                        im_numbers_local.append(img_no)
-                        cnt_geom_arr += 1
-                        cnt += 1
-
-            # Perform pca
-            if self.method == 'NetVLAD':  # if NetVLAD, do not perform PCA
-                projection = db_array
-            elif self.method == 'VGG16':
-                projection = pca.transform(db_array)
-            projection_geom = pca_geom.transform(geom_array)
-
-            # store batches
-            projection_acc.append(projection)
-            im_numbers_acc.append(im_numbers)
-            projection_geom_acc.append(projection_geom)
-            im_numbers_local_acc.append(im_numbers_local)
-
-        # save databases to disk
-        np.save('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method, np.vstack(projection_acc).astype('float32'))
-        np.save('db/' + self.dataset_name + '_stage1_imgnum_'  + self.imageWidthLineEdit_s1.text() + '_' + self.method, np.hstack(im_numbers_acc))
-        np.save('db/' + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text(), np.vstack(projection_geom_acc).astype('float32'))
-        np.save('db/' + self.dataset_name + '_stage2_imgnum_' + self.imageWidthLineEdit_s2.text(), np.hstack(im_numbers_local_acc))
-        self.textBrowser.append('{} '.format("Database of CNN descriptors created"))
-
-        return 0
-
-    def create_databases(self):
-        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
-
-        from keras.models import Model
-        from vgg16_places_356 import VGG16_Places365
-        # from keras.applications.vgg16 import VGG16
-        # model = VGG16(weights='imagenet', include_top=False)
-        # load pre-trained network model
-        model = VGG16_Places365(weights='places', include_top=False)
-
-        use_gpu = self.useGpuCheckBox.checkState()
-
-        # define the models for each stage
-        model1_name = 'block5_conv2'
-        model2_name = 'block4_conv2'
-        model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
-        model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
-
-        # initialize variables
-        self.model1 = model1
-        self.model1_name = model1_name
-        self.ref_dir = self.reference_folder + '/'
-        self.model2 = model2
-        self.model2_name = model2_name
-        self.image_size1 = (224, 224)
-        self.image_size2 = (416, 416)
-        self.num_dim1 = 125
-        self.num_dim2 = 100
-        self.ns1 = 3000  # number of samples to train pca for stage I
-        self.ns2 = 3000  # number of samples to train pca for stage II
-        self.lblk = 4    # 9x9 (x 512) CNN cubes
-        self.sblk = 1    # 3x3 (x 512) CNN cubes
-        self.batch_size = 200  # set value according to RAM resources
-        self.filtered_kernels = np.arange(512)
-        self.filtered_kernels_geom = np.arange(512)
-        self.max_ncubes = 36
-        self.refresh_view()
-        self.create_descriptors()
-
-
-    ##### online part (recognition) ####
-
-    def baseline_vgg16(self, im, filtered_kernels, im_numbers, nbrs0):
         """Stage I for the VGG16 implementation.
         It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
 
         img_hist = np.zeros(self.no_places, float)  # initialise histogram of distances
-        img_hist_rep = np.zeros(self.no_places, int)  # initialise histogram of candidates (places)
-        im = cv2.resize(im, self.image_size1, interpolation=cv2.INTER_CUBIC)
-        rows, cols, _ = im.shape
-
-        # get activations from CNN pre-trained model
-        im = np.expand_dims(im, axis=0)
-        im = preprocess_input(im)
-        vgg16_feature = self.model1.predict(im)
-
-        h, w, depth = vgg16_feature.shape[1], vgg16_feature.shape[2], vgg16_feature.shape[3]
-        filter_sel = np.moveaxis(vgg16_feature[0, :, :, filtered_kernels], 0, -1)
+        h, w, depth = stage1_activ.shape[1], stage1_activ.shape[2], stage1_activ.shape[3]
+        self.channels = np.arange(depth)
+        img_activ_arr_ = np.moveaxis(stage1_activ[0, :, :, self.channels], 0, -1)
 
         # count how many cubes are there for current image size and stride
         ncubes = 0
@@ -910,7 +1200,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         # get array containing the vectors formed concatenating blocks sliding around image
         # # vectorized version  #######################
-        # cutmeup = as_strided(filter_sel, shape=(h - 2*self.lblk, h - 2*self.lblk, 512, 2*self.lblk+1, 2*self.lblk+1, 512), strides=2 * filter_sel.strides)[:, :, 0, :, :, :]
+        # cutmeup = as_strided(img_activ_arr_, shape=(h - 2*self.lblk, h - 2*self.lblk, 512, 2*self.lblk+1, 2*self.lblk+1, 512), strides=2 * img_activ_arr_.strides)[:, :, 0, :, :, :]
         # kk = pp.normalize(cutmeup.reshape(36 * (2 * self.lblk + 1) ** 2 ,  len(filtered_kernels)), norm='l2', axis=1)
         # kk2 = kk.reshape(36 , (2 * self.lblk + 1) ** 2 *  len(filtered_kernels))
         # block_descrip = np.asarray(self.pca.transform(kk2))
@@ -927,8 +1217,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 center = (cii, cjj)
 
                 # select CNN cube for current position (center), normalize and concatenate
-                block = filter_sel[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
-                block_descrip.append(pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(filtered_kernels)), norm='l2', axis=1).flatten())
+                block = img_activ_arr_[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                block_descrip.append(pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten())
                 cnt2 += 1
 
         # PCA dimensionality reduction
@@ -952,35 +1242,234 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     except:
                         print("Warning: could not get candidate number")
                         pass
-                    img_hist_rep[file] += 1  # accumulate repetitions
+                    # img_hist_rep[file] += 1  # accumulate repetitions
                     img_hist[file] += 1      # accumulate distances
 
-        real_ncand = len(img_hist[img_hist != 0])
-        if real_ncand < self.ncand:
-            real_ncand = self.ncand
+        # real_ncand = len(img_hist[img_hist != 0])
+        # if real_ncand < self.ncand:
+        #     real_ncand = self.ncand
+        real_ncand = self.ncand
 
         candidates = np.argsort(-img_hist, axis=0)[:real_ncand]  # best top self.ncand candidates
         cand_dist = -np.sort(-img_hist, axis=0)[:real_ncand]  # best top candidates distances
 
         return candidates, cand_dist, img_hist
 
-    def baseline_netvlad(self, im, sess, net_out, image_batch, vectors, im_numbers, nbrs0):
-        """Stage I for the NetVLAD implementation.
-        It gets the list of candidates (and distances) from IFDB by comparing NetVLAD descriptor of the current query"""
+    def get_candidates_resnet(self, stage1_activ, im_numbers, nbrs0):
+        """
+        It provides the list of candidates (and distances) from IFDB by comparing ResNet descriptors of the current query
 
-        if len(glob.glob(self.dirname + '/*.jpg')) != 0:
-            filenames = glob.glob(self.dirname + '/*.jpg')
-        elif len(glob.glob(self.dirname + '/*.png')) != 0:
-            filenames = glob.glob(self.dirname + '/*.png')
+        Parameters
+        ----------
+        stage1_activ: Descriptor
+        im_numbers  : Reference image indexes
+        channels    : Number of feature maps
+        nbrs0       : Nearest Neighbor model
 
-        filenames.sort()
+        Returns
+        -------
+        candidates  : The list of best candidates from the reference database
+        cand_dist   : The vector distances between candidates and query
+        img_hist    : The histogram of reference images
+
+        """
+
+        """Stage I for the VGG16 implementation.
+        It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
+
+        img_hist = np.zeros(self.no_places, float)  # initialise histogram of distances
+        h, w, depth = stage1_activ.shape[1], stage1_activ.shape[2], stage1_activ.shape[3]
+        self.channels = np.arange(depth)
+        img_activ_arr_ = np.moveaxis(stage1_activ[0, :, :, self.channels], 0, -1)
+
+        # count how many cubes are there for current image size and stride
+        ncubes = 0
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                ncubes += 1
+
+        # randomly select maximum number of cubes
+        if ncubes > self.max_ncubes:
+            mask = np.random.choice(ncubes, self.max_ncubes, replace=False)
+        else:
+            mask = np.arange(self.max_ncubes)
+
+        # get array containing the vectors formed concatenating blocks sliding around image
+        # # vectorized version  #######################
+        # cutmeup = as_strided(img_activ_arr_, shape=(h - 2*self.lblk, h - 2*self.lblk, 512, 2*self.lblk+1, 2*self.lblk+1, 512), strides=2 * img_activ_arr_.strides)[:, :, 0, :, :, :]
+        # kk = pp.normalize(cutmeup.reshape(36 * (2 * self.lblk + 1) ** 2 ,  len(filtered_kernels)), norm='l2', axis=1)
+        # kk2 = kk.reshape(36 , (2 * self.lblk + 1) ** 2 *  len(filtered_kernels))
+        # block_descrip = np.asarray(self.pca.transform(kk2))
+        # ####################################
+
+        # loop version
+        cnt2 = 0
+        block_descrip = []
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                if cnt2 not in mask:  # skip blocks not selected in the mask
+                    cnt2 += 1
+                    continue
+                center = (cii, cjj)
+
+                # select CNN cube for current position (center), normalize and concatenate
+                block = img_activ_arr_[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                block_descrip.append(pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten())
+                cnt2 += 1
+
+        # PCA dimensionality reduction
+        block_descrip = np.asarray(self.pca.transform(block_descrip))
+
+        # query database to get list of candidates
+        cnt = 0; cnt2 = 0
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                if cnt2 not in mask:
+                    cnt2 += 1
+                    continue
+                # select descriptor and calculate distances to database vectors
+                descriptor = block_descrip[cnt]
+                distances, indices = nbrs0.kneighbors(descriptor.reshape(1, -1))
+                cnt += 1; cnt2 += 1
+
+                for rr in range(self.ncand):  # loop through candidates and accumulate statistics
+                    try:
+                        file = int(im_numbers[indices[0][rr]])
+                    except:
+                        print("Warning: could not get candidate number")
+                        pass
+                    # img_hist_rep[file] += 1  # accumulate repetitions
+                    img_hist[file] += 1      # accumulate distances
+
+        # real_ncand = len(img_hist[img_hist != 0])
+        # if real_ncand < self.ncand:
+        #     real_ncand = self.ncand
+        real_ncand = self.ncand
+
+        candidates = np.argsort(-img_hist, axis=0)[:real_ncand]  # best top self.ncand candidates
+        cand_dist = -np.sort(-img_hist, axis=0)[:real_ncand]  # best top candidates distances
+
+        return candidates, cand_dist, img_hist
+
+    def get_candidates_googlenet(self, stage1_activ, im_numbers, nbrs0):
+        """
+        It provides the list of candidates (and distances) from IFDB by comparing GoogLeNet descriptors of the current query
+
+        Parameters
+        ----------
+        stage1_activ: Descriptor
+        im_numbers  : Reference image indexes
+        channels    : Number of feature maps
+        nbrs0       : Nearest Neighbor model
+
+        Returns
+        -------
+        candidates  : The list of best candidates from the reference database
+        cand_dist   : The vector distances between candidates and query
+        img_hist    : The histogram of reference images
+
+        """
+
+        """Stage I for the VGG16 implementation.
+        It gets the list of candidates (and distances) from IFDB by comparing CNN cubes of the current query"""
+
+        img_hist = np.zeros(self.no_places, float)  # initialise histogram of distances
+        h, w, depth = stage1_activ.shape[1], stage1_activ.shape[2], stage1_activ.shape[3]
+        self.channels = np.arange(depth)
+        img_activ_arr_ = np.moveaxis(stage1_activ[0, :, :, self.channels], 0, -1)
+
+        # count how many cubes are there for current image size and stride
+        ncubes = 0
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                ncubes += 1
+
+        # randomly select maximum number of cubes
+        if ncubes > self.max_ncubes:
+            mask = np.random.choice(ncubes, self.max_ncubes, replace=False)
+        else:
+            mask = np.arange(self.max_ncubes)
+
+        # get array containing the vectors formed concatenating blocks sliding around image
+        # # vectorized version  #######################
+        # cutmeup = as_strided(img_activ_arr_, shape=(h - 2*self.lblk, h - 2*self.lblk, 512, 2*self.lblk+1, 2*self.lblk+1, 512), strides=2 * img_activ_arr_.strides)[:, :, 0, :, :, :]
+        # kk = pp.normalize(cutmeup.reshape(36 * (2 * self.lblk + 1) ** 2 ,  len(filtered_kernels)), norm='l2', axis=1)
+        # kk2 = kk.reshape(36 , (2 * self.lblk + 1) ** 2 *  len(filtered_kernels))
+        # block_descrip = np.asarray(self.pca.transform(kk2))
+        # ####################################
+
+        # loop version
+        cnt2 = 0
+        block_descrip = []
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                if cnt2 not in mask:  # skip blocks not selected in the mask
+                    cnt2 += 1
+                    continue
+                center = (cii, cjj)
+
+                # select CNN cube for current position (center), normalize and concatenate
+                block = img_activ_arr_[center[0] - self.lblk: center[0] + self.lblk + 1, center[1] - self.lblk: center[1] + self.lblk + 1]
+                block_descrip.append(pp.normalize(block.reshape((2 * self.lblk + 1) ** 2, len(self.channels)), norm='l2', axis=1).flatten())
+                cnt2 += 1
+
+        # PCA dimensionality reduction
+        block_descrip = np.asarray(self.pca.transform(block_descrip))
+
+        # query database to get list of candidates
+        cnt = 0; cnt2 = 0
+        for cii in range(self.lblk, h - self.lblk, 1):
+            for cjj in range(self.lblk, h - self.lblk, 1):
+                if cnt2 not in mask:
+                    cnt2 += 1
+                    continue
+                # select descriptor and calculate distances to database vectors
+                descriptor = block_descrip[cnt]
+                distances, indices = nbrs0.kneighbors(descriptor.reshape(1, -1))
+                cnt += 1; cnt2 += 1
+
+                for rr in range(self.ncand):  # loop through candidates and accumulate statistics
+                    try:
+                        file = int(im_numbers[indices[0][rr]])
+                    except:
+                        print("Warning: could not get candidate number")
+                        pass
+                    # img_hist_rep[file] += 1  # accumulate repetitions
+                    img_hist[file] += 1      # accumulate distances
+
+        # real_ncand = len(img_hist[img_hist != 0])
+        # if real_ncand < self.ncand:
+        #     real_ncand = self.ncand
+        real_ncand = self.ncand
+
+        candidates = np.argsort(-img_hist, axis=0)[:real_ncand]  # best top self.ncand candidates
+        cand_dist = -np.sort(-img_hist, axis=0)[:real_ncand]  # best top candidates distances
+
+        return candidates, cand_dist, img_hist
+
+    def get_candidates_netvlad(self, descriptor, im_numbers, nbrs0):
+        """
+        It provides the list of candidates (and distances) from IFDB by comparing NetVLAD descriptor of the current query
+
+        Parameters
+        ----------
+        stage1_activ: Descriptor
+        im_numbers  : Reference image indexes
+        nbrs0       : Nearest Neighbor model
+
+        Returns
+        -------
+        candidates  : The list of best candidates from the reference database
+        cand_dist   : The vector distances between candidates and query
+        img_hist    : The histogram of reference images
+
+        """
+
+        # # PCA dimensionality reduction
+        # stage1_activ = np.asarray(self.pca.transform(stage1_activ))
+
         img_hist = np.zeros(self.no_places, float)
         img_hist_rep = np.zeros(self.no_places, int)
-        im = cv2.resize(im, self.image_size1, interpolation=cv2.INTER_CUBIC)
-        rows, cols, _ = im.shape
-        im = np.expand_dims(im, axis=0)
-        descriptor = sess.run(net_out, feed_dict={image_batch: im})
-        descriptor = np.asarray(descriptor)
         distances, indices = nbrs0.kneighbors(descriptor)
 
         if len(distances[0]) < self.ncand:
@@ -996,35 +1485,83 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return candidates, cand_dist, img_hist
 
-    def get_score_patch(self, query_indices, cand_patches, patch_size):
+    def get_hor_offset_patch(self, nbrs_inst, array_geom_current, array_geom_db, nlr):
+        # array_geom_db = self.vectors_local[np.where(self.image_numbers_local == hit)]
+        # train nearest neighbour
+        nbrs = nbrs_inst.fit(array_geom_current)
+        distances, indices = nbrs.kneighbors(array_geom_db)
+        indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+        eq_arr = np.zeros((self.blocks_per_side, self.blocks_per_side), bool)
+        steer_hist = np.zeros(2 * self.blocks_per_side, int)
+
+        # arange = np.arange(self.spatch ** 2).reshape((self.spatch, self.spatch)) - int((self.spatch ** 2 - 1) / 2)
+        arange = np.arange((2 * nlr + 1) ** 2).reshape(((2 * nlr + 1, 2 * nlr + 1))) - int(((2 * nlr + 1) ** 2 - 1) / 2)
+        # create array padded on the outside so that locations in near the border of the original array can be dealt with
+        # we fill it with a value of -1000 that we know never is going to match
+        indices_pad = np.pad(indices_resh, nlr, 'constant', constant_values=-1000)
+        for ci in range(nlr, indices_pad.shape[0] - nlr, 1):
+            for cj in range(nlr, indices_pad.shape[1] - nlr, 1):
+                ind_patch = indices_pad[ci - nlr: ci + nlr + 1, cj - nlr: cj + nlr + 1]
+                # eq_arr = (ind_patch == (arange + (indices_pad[ci, cj])))
+                # eq_arr[ci, cj] = False
+                match_idx = np.unravel_index(indices_resh[ci-nlr, cj-nlr], (self.blocks_per_side, self.blocks_per_side))
+                if match_idx[1] - (cj - nlr) >= 0:
+                    # steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.sum(eq_arr)
+                    steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
+                else:
+                    # steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.sum(eq_arr)
+                    steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
+
+        steer = np.argmax(steer_hist) - self.blocks_per_side
+        offset = np.round((float(steer)/self.blocks_per_side), 3)
+
+        return offset
+
+    def get_score_patch(self, query_indices,  cand_patches, nlr):
         """
-        Vectorized speed-up version of the spatial matching procedure
-        Gets the spatial matching score when using a patch of features around anchor points
-        :param query_indices: indices of the matched features in the query for each feature in the candidate
-        :param cand_patches: tensor of identical candidate patches (central element is zero)
-        :param nlr: the number of activations from the center of the patch to one edge
-        :return: the score
+        Gets the spatial matching score when using a patch around anchor points
+        Parameters
+        ----------
+        query_indices: Index array of the best matches when comparing query and current candidate
+        cand_patches : Patches with indexes in ascending order and null in the center.
+        nlr          : The number of activations per side of the patch
+
+        Returns
+        -------
+        score        : The spatial matching score for current candidate
         """
 
-        nlr2 = patch_size // 2
+        patch_size = nlr
+        nlr2 = nlr // 2
 
-        # pad query array to allow for full patches near edges
-        query_indices_pad = np.pad(query_indices, (nlr2), 'constant', constant_values=-1000)
+        # compare patches (too much overhead using GPU, CPU version preferred)
+        if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+            query_indices_pad = np.pad(query_indices, (nlr2), 'constant', constant_values=-1000)
+            query_indices_flat = query_indices.flatten()
+            query_patches = image.extract_patches_2d(query_indices_pad, (patch_size, patch_size))
 
-        # extract patches of features
-        query_patches = image.extract_patches_2d(query_indices_pad, (patch_size, patch_size))
+            # modify candidate patches to make it relative to each query closest match, so they can be compared
+            cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0] ** 2, 1, 1))
+            query_patches = torch.from_numpy(query_patches).to("cuda")
+            cand_patches = torch.from_numpy(cand_patches).to("cuda")
+            score = (query_patches == cand_patches).sum().cpu().item()
+        else:
 
-        # adjust candidate patches according to each query closest match
-        query_indices_flat = query_indices.flatten()
-        cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0] ** 2, 1, 1))
+            # pad query array to allow for full patches near edges
+            query_indices_pad = np.pad(query_indices, (nlr2), 'constant', constant_values=-1000)
 
-        score = np.count_nonzero(query_patches == cand_patches)
+            # extract patches
+            query_patches = image.extract_patches_2d(query_indices_pad, (patch_size, patch_size))
+
+            # modify candidate patches to make it relative to each query closest match, so they can be compared
+            query_indices_flat = query_indices.flatten()
+            cand_patches = np.add(cand_patches, query_indices_flat.reshape(query_indices.shape[0]**2, 1, 1))
+            score = np.count_nonzero(query_patches == cand_patches)
 
         return score
 
     def get_score_patch0(self, query_indices,  nlr):
         """
-        Loop version
         Gets the spatial matching score when using a patch around anchor points
         :param indices_resh:
         :param bdist0:
@@ -1037,6 +1574,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         # start_time2 = time.time()
 
         acc = 0
+
         query_indices_mod = np.copy(query_indices)
         for kk in range(1, query_indices.shape[0]):
             query_indices_mod[kk, :] = query_indices[kk, :] + kk * ((1 * query_indices.shape[0]+1))
@@ -1064,46 +1602,173 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return bdist0
 
-    def train_nearest_neighbor(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
-        """Train Nearest Neighbor model for current query image.
+
+    # def create_query_vectors(self, hg, wg, vectors_query, array_geom_query, arr_size):# loop version
+    #     cnt = 0
+    #     for cgii in range(self.sblk, hg - self.sblk, 2):  # increment of 2 is to reduce complexity by skipping every other location
+    #         for cgjj in range(self.sblk, wg - self.sblk, 2):
+    #             if cnt == arr_size:
+    #                 break
+    #             center = (cgii, cgjj)
+    #             block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+    #             array_geom_query[cnt] = block_geom_query
+    #             cnt += 1
+    #     array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
+    #     return array_geom_query
+
+    def select_method_stage1(self):
+        """Select the checked option from the available methods in stage I"""
+
+        if self.vggRadioButton.isChecked():
+            self.method1 = 'VGG16'
+            self.imageWidthLineEdit_s1.setText('224')
+            self.imageSizeGroupBox_s1.setEnabled(False)
+        elif self.netvladRadioButton.isChecked():
+            self.method1 = 'NetVLAD'
+            self.imageSizeGroupBox_s1.setEnabled(True)
+        elif self.resnetRadioButton.isChecked():
+            self.method1 = 'ResNet'
+            self.imageWidthLineEdit_s1.setText('224')
+            self.imageSizeGroupBox_s1.setEnabled(False)
+        elif self.googlenetRadioButton.isChecked():
+            self.method1 = 'GoogLeNet'
+            self.imageWidthLineEdit_s1.setText('224')
+            self.imageSizeGroupBox_s1.setEnabled(False)
+
+    def select_method_stage2(self):
+        """Select the checked option from the available methods in stage II"""
+
+        if self.vggRadioButton_s2.isChecked():
+            self.method2 = 'VGG16'
+        elif self.resnetRadioButton_s2.isChecked():
+            self.method2 = 'ResNet'
+        elif self.googlenetRadioButton_s2.isChecked():
+            self.method2 = 'GoogLeNet'
+
+    def retrieve_model(self, method):
+        """Retrieves chosen model for stage I """
+
+        if method == 'VGG16':
+            import vgg16_model
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                model_vgg16 = vgg16_model.VGG16Model('./checkpoints/vgg16_places365.npy').to('cuda').eval()
+            else:
+                model_vgg16 = vgg16_model.VGG16Model('./checkpoints/vgg16_places365.npy').eval()
+            return model_vgg16
+
+        elif method == 'NetVLAD':
+            # create netvlad model
+            base_model, net_vlad = self.create_base_and_netvlad_models()
+            model = torch.nn.Module()
+            model.add_module('encoder', base_model)
+            model.add_module('pool', net_vlad)
+            checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/netvlad_checkpoint.pth.tar',
+                                    map_location=lambda storage, loc: storage)
+            model.load_state_dict(checkpoint['state_dict'], strict=False)
+            model_netvlad = netvlad_model.EmbedNet(model)
+            model_netvlad = model_netvlad.cuda()
+            return model_netvlad
+
+        elif method == 'ResNet':
+            import resnet_model
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                model_resnet = resnet_model.ResNetModel('./checkpoints/resnet-152-torch-places365.npy').to('cuda').eval()
+            else:
+                model_resnet = resnet_model.ResNetModel('./checkpoints/resnet-152-torch-places365.npy').eval()
+            return model_resnet
+
+        elif method == 'GoogLeNet':
+            import googlenet_model
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                model_googlenet = googlenet_model.GoogLeNetModel('./checkpoints/googlenet_places365.npy').to('cuda').eval()
+            else:
+                model_googlenet = googlenet_model.GoogLeNetModel('./checkpoints/googlenet_places365.npy').eval()
+        return model_googlenet
+
+    def create_database(self):
+        """Takes the images in the selected reference directory and creates CNN features databases for stages I and II"""
+
+        # load models
+        self.model_stage1 = self.retrieve_model(self.method1)
+        if self.method2 == self.method1:
+            self.model_stage2 = self.model_stage1
+        else:
+            self.model_stage2 = self.retrieve_model(self.method2)
+
+        # initialize variables
+        self.ref_dir = self.reference_folder + '/'
+        # self.image_size1 = (224, 224)
+        # self.image_size2 = (448, 448)
+        # self.num_dim1 = 125
+        # self.num_dim2 = 100
+        # self.ns1 = 2000  # number of samples to train pca for stage I
+        # self.ns2 = 2000  # number of samples to train pca for stage II
+        self.lblk = 4    # 9x9 (x 512) CNN cubes
+        self.sblk = 1    # 3x3 (x 512) CNN cubes
+        self.batch_size = 250  # set value according to RAM resources
+        # self.channels = np.arange(512)
+        # self.channels_geom = np.arange(512)
+        self.max_ncubes = 36
+        self.refresh_view()
+
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(self.image_size1), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(self.image_size2), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+
+        self.create_db()
+
+    def warning_win(self, title, message1, message2):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(message1)
+        msg.setInformativeText(message2)
+        msg.setWindowTitle(title)
+        msg.exec_()
+
+    def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg):
         """
+        Calculate spatially-aware descriptors for query image
+
+        Parameters
+        ----------
+        arr_size        : Number of descriptors
+        vectors_query   : Activation tensor
+        hg              : Number of activations in the vertical direction
+        wg              : Number of activations in the horizontal direction
+
+        Returns
+        -------
+        array_geom_query: Array of descriptors
+        """
+
+        self.channels_geom = np.arange(vectors_query.shape[2])
         cnt = 0
-        array_geom_query = np.zeros((arr_size, 3, 3, 512))
-        for cgii in range(self.sblk, hg - self.sblk, 2):
-            for cgjj in range(self.sblk, wg - self.sblk, 2):
+        array_geom_query = np.zeros((arr_size, 3, 3, len(self.channels_geom)))
+        for cgii in range(self.sblk, hg - self.sblk, 1):
+            for cgjj in range(self.sblk, wg - self.sblk, 1):
                 if cnt == arr_size:
                     break
                 center = (cgii, cgjj)
                 block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
                 array_geom_query[cnt] = block_geom_query
                 cnt += 1
-        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
-
-        # train nearest neighbour for query
-        nbrs = nbrs_inst.fit(array_geom_query)
-
-        # return nbrs, array_geom_query
+        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 3 * 3 * len(self.channels_geom)))
         return array_geom_query
-
-    def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg, nbrs_inst=None):
-        """Train Nearest Neighbor model for current query image.
-        """
-        cnt = 0
-        array_geom_query = np.zeros((arr_size, 3, 3, 512))
-        for cgii in range(self.sblk, hg - self.sblk, 2):
-            for cgjj in range(self.sblk, wg - self.sblk, 2):
-                if cnt == arr_size:
-                    break
-                center = (cgii, cgjj)
-                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
-                array_geom_query[cnt] = block_geom_query
-                cnt += 1
-        array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 4608))
-        return array_geom_query
-
 
     def use_frame_corr(self, npf, pf_arr, cand, i):
-        """Exploit frame time correlation to boost recognition precision"""
+        """
+        Exploits frame time correlation to boost recognition precision
+
+        Parameters
+        ----------
+        npf     : Number of previous recognition outputs that are being considered
+        pf_arr  : Array stoing previous recognition resuls
+        cand    : Current candidate index
+        i       : Image sequence index
+
+        Returns
+        -------
+        wcand   : Weight of current candidate after considering frame correlation
+        """
 
         wcand = 1  # candidate initial weight
         if i >= npf and npf != 0:
@@ -1125,61 +1790,147 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     # select the maximum contribution
                     if contrib > max_accfp:
                         max_accfp = contrib
-
             wcand = 1 + max_accfp
 
         return wcand
 
     # @time_decorator
     def compute_neighbors(self, candidates, array_geom_query):
-        indices_arr = []
-        for c in range(0, self.ncand, 1):
-            cand = candidates[c]
+        """
+        Calculates the index of the best match in the candidate for each feature in the query
+        and for all candidates.
+        Parameters
+        ----------
+        candidates      : Array containing the index of candidates in the spatial matching database (SMDB)
+        array_geom_query: Query image descriptors
 
-            # retrieve spatially-aware vectors from spatial matching database
-            array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
+        Returns
+        -------
+        indices_arr_list: A list of arrays containing best matches between query and candidates' features
+        """
 
-            # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
-            # indices = self.nbrs.kneighbors(array_geom_db, return_distance=False)
-            indices = np.argmin(1 - np.inner(array_geom_query, array_geom_db), axis=0)
-            # indices = np.argmin(1 - cosine_similarity(array_geom_query, array_geom_db), axis=0)
-            indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
-            indices_arr.append(indices_resh)
+        indices_arr_list = []
+        # if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():  # loop version
+        #     array_geom_query = torch.from_numpy(array_geom_query)
+        #     array_geom_query = array_geom_query.to('cuda')
+        #     candidates = torch.from_numpy(np.asarray(candidates)).to('cuda')
+        #
+        #     for c in range(0, self.ncand, 1):
+        #         cand = candidates[c]
+        #         array_geom_db = self.vectors_local[torch.nonzero(self.image_numbers_local == cand)].squeeze(dim=1)
+        #         indices = torch.matmul(array_geom_query, torch.transpose(array_geom_db, 0, 1).double())
+        #         indices = torch.argmin(1 - indices, dim=0)
+        #         indices = indices.cpu().numpy()
+        #         # indices = np.argmin(1 - indices, axis=0)
+        #         indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+        #         indices_arr_list.append(indices_resh)
+        if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+            with torch.no_grad():
+                array_geom_query = torch.from_numpy(array_geom_query)
+                array_geom_query = array_geom_query.to('cuda')
+                array_geom_query = array_geom_query.unsqueeze(0).repeat(self.ncand, 1, 1)  # replicate query array
 
-        return indices_arr
+                # SMDB database loaded on GPU
+                if self.loadDbOnGpuCheckBox.isChecked():
+                    candidates = torch.from_numpy(np.asarray(candidates)).to('cuda')
+                    candidates = candidates.repeat_interleave(array_geom_query.shape[1]) * array_geom_query.shape[1]  # adapt candidates for indexing
+                    ord_arr = torch.from_numpy(np.arange(array_geom_query.shape[1])).to('cuda')  # array of ascending numbers
+                    ord_arr = ord_arr.repeat(self.ncand)  # replicate so it can be ddded to candidates
+                    candidates = candidates + ord_arr
+                    array_geom_db = self.vectors_local[candidates]  # extract vectors for candidates
+                    array_geom_db = array_geom_db.split(array_geom_query.shape[1], dim=0)  # separate for each candidate
+                    array_geom_db = torch.stack(array_geom_db)  # convert to tensor (result of split is a tuple)
+                else:
+                    # SMDB database on disk
+                    candidates = np.asarray(candidates)
+                    candidates = np.repeat(candidates, array_geom_query.shape[1]) * array_geom_query.shape[1]
+                    ord_arr = np.arange(array_geom_query.shape[1])  # array of ascending numbers
+                    ord_arr = np.tile(ord_arr, self.ncand)  # replicate so it can be added to candidates
+                    candidates = candidates + ord_arr
+                    array_geom_db = self.vectors_local[candidates]  # extract vectors for candidates
+                    array_geom_db = np.asarray(np.split(array_geom_db, array_geom_query.shape[1])).\
+                        reshape((self.ncand, array_geom_query.shape[1], array_geom_query.shape[2]))  # convert to tensor (result of split is a tuple)
+                    array_geom_db = torch.from_numpy(array_geom_db).to('cuda')
 
+                # let's split the batch of candidates (matrix multiplication can easily overflow memory)
+                if self.gpu_max_candidates < self.ncand:
+                    flag = False
+                    nsplits = self.ncand // self.gpu_max_candidates   # number of splits
+                    nelem = self.ncand // nsplits  # number of candidates per split
+                    if self.ncand % self.gpu_max_candidates != 0:  # if there is some candidates remaining
+                        nsplits =  nsplits + 1  # extend by one the number of splits
+                        flag = True
+
+                    for i in range(nsplits):
+                        if not (flag and i == nsplits - 1):  # candidates in full splits
+                            array_geom_query_split = array_geom_query[i*nelem: (i+1)*nelem]
+                            array_geom_db_split = array_geom_db[i*nelem: (i+1)*nelem]
+                        else:       # remaining candidates in last split
+                            array_geom_query_split = array_geom_query[i*nelem: self.ncand]
+                            array_geom_db_split = array_geom_db[i*nelem: self.ncand]
+
+                        # this is the actual spatial matching, using matrix multiplication and extracting the candidate indexes of
+                        # the best matches in the query for each feature
+                        indices_split = torch.argmin(1 - torch.matmul(array_geom_query_split.half(), torch.transpose(array_geom_db_split.half(), 1, 2)), dim=1)
+
+                        if i == 0:
+                           indices = indices_split
+                        else:
+                            indices = torch.cat((indices, indices_split), 0)  # join the splits
+                        torch.cuda.empty_cache()
+                    indices = indices.reshape(-1, self.blocks_per_side, self.blocks_per_side)
+                    indices_arr_list = list(indices.cpu().numpy())
+                else:
+                    # without splitting
+                    indices = torch.argmin(1 - torch.matmul(array_geom_query.half(), torch.transpose(array_geom_db.half(), 1, 2)), dim=1)
+                    indices = indices.reshape(-1, self.blocks_per_side, self.blocks_per_side)
+                    indices_arr_list = list(indices.cpu().numpy())
+                del array_geom_db, array_geom_query, candidates, ord_arr, indices
+                torch.cuda.empty_cache()
+        else:
+            for c in range(0, self.ncand, 1):
+                cand = candidates[c]
+
+                # retrieve spatially-aware vectors from spatial matching database
+                array_geom_db = self.vectors_local[np.where(self.image_numbers_local == cand)]
+
+                # for each vector in the query, find the distances and indices of the nearest vectors in the current candidate
+                indices = np.argmin(1 - np.inner(array_geom_query, array_geom_db), axis=0)
+                indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
+                indices_arr_list.append(indices_resh)
+
+        return indices_arr_list
 
     def recognise_places(self):
-        """Performs recognition (stage II) based on the candidates provided by baseline_vgg16 (or baseline_netvlad)"""
+        """
+        Performs recognition (stage II) based on the candidates provided by stage I
+        """
+        from torchvision import transforms as T
 
-        from keras.models import Model
-        from vgg16_places_356 import VGG16_Places365
-        from joblib import dump, load
-        # from multiprocessing import Lock, Pool
-        # # from pathos.multiprocessing import ProcessingPool as Pool
-        # from functools import partial
-        start0 = time.time()
+        self.refresh_view()
+        self.preprocess1 = T.Compose([T.Resize(self.image_size1), T.CenterCrop(self.image_size1),
+                                      T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+        self.preprocess2 = T.Compose([T.Resize(self.image_size2), T.CenterCrop(self.image_size2),
+                                      T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), ])
+
+        self.model_stage1 = self.retrieve_model(self.method1)
+        self.model_stage2 = self.retrieve_model(self.method2)
+
         self.reset_controls()
         self.refresh_view()
 
-        # load pre-trained network model
-        model = VGG16_Places365(weights='places', include_top=False)
+        start0 = time.time()
+        from joblib import dump, load
 
         # define the models for each stage
         dirname = self.test_folder + '/'
-        model1_name = 'block5_conv2'
-        model2_name = 'block4_conv2'
-        model1 = Model(model.input, model.get_layer(model1_name).output)  # stage I
-        model2 = Model(model.input, model.get_layer(model2_name).output)  # stage II
 
-        # set class variables
+        self.ncand = int(self.candidatesLineEdit.text())
         self.lblk = 4
         self.sblk = 1
-        self.model1 = model1
-        self.model1_name = model1_name
         self.dirname = dirname
-        self.model2 = model2
-        self.model2_name = model2_name
+        # self.image_size1 = (int(self.imageWidthLineEdit_s1.text()), int(self.imageHeightLineEdit_s1.text()))
+        # self.image_size2 = (int(self.imageWidthLineEdit_s2.text()), int(self.imageHeightLineEdit_s2.text()))
         self.max_ncubes = 36        # number of CNN cubes used in stage I
         self.cp = 0.4               # experimental frame correlation factor
         self.spatch = 19            # number of activations per side of the patch in stage II
@@ -1201,41 +1952,43 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             self.warning_win('Warning', 'Ground truth csv file not found', 'Please load file first')
             return 0
         try:
-            vectors = np.load('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
+            vectors = np.load('db/' + self.dataset_name + '_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.npy')
             nbrs0 = NearestNeighbors(n_neighbors=self.ncand, algorithm='brute').fit(vectors)  # brute  ball_tree  kd_tree  auto
-            im_numbers = np.load('db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method + '.npy')
+            im_numbers = np.load('db/' + self.dataset_name + '_stage1_imgnum_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.npy')
             self.no_places = int(np.max(im_numbers)) + 1
         except:
-            self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
+            self.warning_win('Warning', 'Database for current settings not found or corrupted', 'Please load reference dir and create db')
             return 0
 
         try:
-            self.vectors_local = np.load('db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text()  + '.npy')
-            self.image_numbers_local = np.load('db/' + self.dataset_name + '_stage2_imgnum_'  + self.imageWidthLineEdit_s2.text() + '.npy')
+            self.vectors_local = np.load('db/'  + self.dataset_name + '_stage2_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2 + '.npy')
+            self.image_numbers_local = np.load('db/' + self.dataset_name + '_stage2_imgnum_'  + self.imageWidthLineEdit_s2.text() + '_' + self.method2 + '.npy')
+
+            # load SMDB on GPU
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                if self.loadDbOnGpuCheckBox.isChecked():
+                    self.vectors_local = torch.from_numpy(self.vectors_local)
+                    self.image_numbers_local = torch.from_numpy(self.image_numbers_local)
+                    self.vectors_local = self.vectors_local.to('cuda')
+                    self.image_numbers_local = self.image_numbers_local.to('cuda')
         except:
             self.warning_win('Warning', 'Database for current settings not found', 'Please load reference dir and create db')
             return 0
 
-        if self.method == 'NetVLAD':
+        if self.method1 == 'NetVLAD':
             pass
-        elif self.method == 'VGG16':
-            self.pca = load('pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_VGG16.joblib')
+            # self.pca = load('pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_NetVLAD.joblib')
+        else:
+            self.pca = load('pca/pca_stage1_' + self.imageWidthLineEdit_s1.text() + '_' + self.method1 + '.joblib')
 
-        self.pca_geom = load('pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_VGG16.joblib')
+        self.pca_geom = load('pca/pca_stage2_' + self.imageWidthLineEdit_s2.text() + '_' + self.method2 + '.joblib')
 
         if len(glob.glob(self.dirname + '/*.jpg')) != 0:
             filenames = glob.glob(self.dirname + '/*.jpg')
         elif len(glob.glob(self.dirname + '/*.png')) != 0:
             filenames = glob.glob(self.dirname + '/*.png')
 
-        if self.method == 'NetVLAD':
-            # prepare NetVLAD model
-            image_batch, net_out, sess = self.prepare_NetVLAD()
-            K.clear_session()
-            vgg16 = VGG16_Places365(weights='places', include_top=False)
-            self.model2 = Model(vgg16.input, vgg16.get_layer(self.model2_name).output)
-
-        # write results to output file
+         # write results to output file
         output = open(self.dataset + "_output.txt", "w")
 
         tpcnt = 0  # true positive counter
@@ -1249,7 +2002,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         npf = self.npf   # number of previous frames considered
         pf_arr = np.zeros((npf, 2))
         same_img_score = 1E6
-#        nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute', leaf_size=500, metric='cosine')
+
+        import torch.nn.functional as F
 
         for i, fpath in enumerate(filenames):
 
@@ -1274,18 +2028,34 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
             start_imgt = time.time()
 
-            # read  frame
+            # read  query frame
             im = cv2.imread(fpath)
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
-            filtered_kernels = np.arange(512)
-            filtered_kernels_geom = np.arange(512)
+            # get query vectors for both stages
+            stage1_activ, stage2_activ = self.get_pytorch_tensors(fpath)
+
+            hg, wg, depthg = stage2_activ.shape[1], stage2_activ.shape[2], stage2_activ.shape[3]
+            channels_geom = np.arange(depthg)
+
+            # maxpool the layer to make it compatible with code
+            if self.method1 != 'NetVLAD':
+                if stage1_activ.shape[1] > 14:
+                    red_factor = stage1_activ.shape[1] // 14
+                    stage1_activ = skimage.measure.block_reduce(stage1_activ, (1, red_factor, red_factor, 1), np.max)
+                elif stage1_activ.shape[1] < 14:
+                    # TODO upsample array to make it compatible with size 14x14
+                    pass
 
             # call method for image filtering (stage I)
-            if self.method == 'NetVLAD':
-                candidates, cand_dist, img_hist = self.baseline_netvlad(im, sess, net_out, image_batch, vectors, im_numbers, nbrs0)
-            elif self.method == 'VGG16':
-                candidates, cand_dist, img_hist = self.baseline_vgg16(im, filtered_kernels, im_numbers, nbrs0)
+            if self.method1 == 'VGG16':
+                candidates, cand_dist, img_hist = self.get_candidates_vgg16(stage1_activ, im_numbers, nbrs0)
+            elif self.method1 == 'NetVLAD':
+                candidates, cand_dist, img_hist = self.get_candidates_netvlad(stage1_activ, im_numbers, nbrs0)
+            if self.method1 == 'ResNet':
+                candidates, cand_dist, img_hist = self.get_candidates_resnet(stage1_activ, im_numbers, nbrs0)
+            if self.method1 == 'GoogLeNet':
+                candidates, cand_dist, img_hist = self.get_candidates_googlenet(stage1_activ, im_numbers, nbrs0)
 
             # get the query image number from its filename
             self.img_no = self.get_img_no(os.path.splitext(os.path.basename(fpath))[0])
@@ -1293,38 +2063,35 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # get spatial matching vectors for query image
             im = cv2.resize(im, self.image_size2, interpolation=cv2.INTER_CUBIC)
             rows, cols, _ = im.shape
-            im = np.expand_dims(im, axis=0)
-            im = preprocess_input(im)
-            vgg16_feature_geom = self.model2.predict(im)
-            vgg16_feature_geom = np.array(vgg16_feature_geom)
-            side = vgg16_feature_geom.shape[1]
-            side_eff = side // 2 - 1
+
+            side = stage2_activ.shape[1]
+#            side_eff = side // 2 - 1
+            side_eff = side - 2*self.sblk
             arr_size = side_eff ** 2
-            vectors_query = pp.normalize(np.moveaxis(vgg16_feature_geom[0, :, :, filtered_kernels_geom], 0, -1).reshape(side * side, 512), norm='l2', axis=1)
-            vectors_query = vectors_query.reshape((side, side, 512))
-            hg, wg, depthg = vgg16_feature_geom.shape[1], vgg16_feature_geom.shape[2], vgg16_feature_geom.shape[3]
+            vectors_query = pp.normalize(np.moveaxis(stage2_activ[0, :, :, channels_geom], 0, -1).reshape(side * side, depthg), norm='l2', axis=1)
+            vectors_query = vectors_query.reshape((side, side, depthg))
+            hg, wg, depthg = stage2_activ.shape[1], stage2_activ.shape[2], stage2_activ.shape[3]
+
+            # declare k-NN model
+#            nbrs_inst = NearestNeighbors(n_neighbors=1, algorithm='brute',leaf_size=500, metric='cosine')
 
             scores_hist = np.zeros(self.no_places, float)
             min_dist = np.zeros(self.no_places, float)
             min_dist[min_dist == 0] = 1E6
             self.blocks_per_side = side_eff
-
-            nlr = int(side_eff * 0.75)  # make patch side approx 75 % of image width
+            # nlr = self.spatch // 2
+            nlr = int(side_eff * 0.75)  # make patch side 75 % of image width
             if nlr % 2 == 0:
                 nlr = nlr - 1
             nlr2 = nlr // 2
 
-            # define candidate patches backbone, with a value of 0 in the center, negative to the left and up and positive to the right and down
-            # they define the position that matching features in query should have
+            # create list of patches with indexes in ascending order and null in the center. These are used during
+            # spatial matching as the reference expected output in the ideal case of to identical query and candidate images
             cand_indices = np.arange(self.blocks_per_side**2).reshape((self.blocks_per_side, self.blocks_per_side)) - self.blocks_per_side**2 // 2
-            candc0 = int(cand_indices.shape[1] / 2)  # center coordinate
+            candc0 = int(cand_indices.shape[1] / 2)
             cand_patch = cand_indices[candc0 - nlr2: candc0 + nlr2 + 1, candc0 - nlr2: candc0 + nlr2 + 1]
-            cand_patch = cand_patch - cand_patch[nlr2, nlr2]  # set patch elements so that center is zero
-            cand_patches = np.stack([cand_patch  for i in range(self.blocks_per_side ** 2)], axis=0)  # create a tensor of identical patches
-            #  example of resulting cand_patch for self.blocks_per_side = 3
-            # [-4, -3, -2]
-            # [-1,  0,  1]
-            # [ 2,  3,  4]
+            cand_patch = cand_patch - cand_patch[nlr2, nlr2]
+            cand_patches = np.stack([cand_patch  for i in range(self.blocks_per_side ** 2)], axis=0)
 
             # get maximum recognition score (as for identical images), which is used to calculate score percentage
             if i == 0:
@@ -1334,47 +2101,120 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             # train nearest neighbor for current query
             # self.nbrs, array_geom_query = self.train_nearest_neighbor(arr_size, vectors_query, hg, wg, nbrs_inst)
 
-            # get spatial matching descriptors for query
+            # compute descriptors for query image
             array_geom_query = self.get_query_geom_descrip(arr_size, vectors_query, hg, wg)
 
-            # # multiprocessing
-            # cand_chunks = [candidates[i::20] for i in range(20)]
-            # pool = Pool(20)
-            # func = partial(compute_neighbors, self.ncand, self.vectors_local, self.image_numbers_local, self.nbrs, self.blocks_per_side)
-            # indices_arr = pool.map(func, cand_chunks) # iterable parameter at the end
-            # pool.close()
-            # pool.join()
-
-            # get indices for matches in query image
-#            indices_arr = self.compute_neighbors(candidates)
+            # calculate list of arrays of indexes of the best matches in each and all candidates for features in the query
             indices_arr = self.compute_neighbors(candidates, array_geom_query)
 
-            # loop over image filtering candidates
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                with torch.no_grad():
+                    indices_arr = torch.from_numpy(np.asarray(indices_arr).
+                                 reshape(self.ncand, 1, np.asarray(indices_arr).shape[1], np.asarray(indices_arr).shape[2])).to('cuda')
+
+                    kh, kw = nlr, nlr  # patch size
+                    dh, dw = 1, 1  # strides
+                    cand_patches = cand_patches.reshape((self.blocks_per_side, self.blocks_per_side, 1, kw, kh))
+                    cand_patches = torch.from_numpy(cand_patches).to('cuda')
+
+                    # let's split the batch of candidates (matrix mutiplication can easily overflow memory)
+                    if self.gpu_max_candidates < self.ncand:
+                        flag = False
+                        nsplits = self.ncand // self.gpu_max_candidates  # number of splits
+                        nelem = self.ncand // nsplits  # number of candidates per split
+                        if self.ncand % self.gpu_max_candidates != 0:  # if there is some candidates remaining
+                            nsplits = nsplits + 1  # extend by one the number of splits
+                            flag = True
+                        for ii in range(nsplits):
+                            if not (flag and ii == nsplits - 1):
+                                _indices_arr_split = indices_arr[ii*nelem: (ii+1)*nelem]
+                                _query_indices_pad = F.pad(_indices_arr_split, (nlr2, nlr2, nlr2, nlr2))
+                                _query_patches = _query_indices_pad.unfold(2, kh, dh).unfold(3, kw, dw)
+                                _query_patches = _query_patches.permute(0, 2, 3, 1, 4, 5).contiguous()
+                                _cand_patches_split = cand_patches.unsqueeze(0).repeat(nelem, 1, 1, 1, 1, 1)
+                                _indices_arr_flat = _indices_arr_split.reshape(nelem, self.blocks_per_side ** 2, 1, 1, 1)
+                                _cand_patches_flat = _cand_patches_split.reshape(nelem, self.blocks_per_side ** 2, 1, nlr, nlr)
+                                _cand_patches_flat = torch.add(_indices_arr_flat, _cand_patches_flat)
+                                _cand_patches = _cand_patches_flat.reshape((nelem, self.blocks_per_side, self.blocks_per_side, 1, nlr, nlr))
+
+                                _score = (_query_patches == _cand_patches).view(nelem, -1).sum(1)
+                                _score = _score.cpu().numpy()
+                                del _query_patches, _indices_arr_split, _indices_arr_flat, _cand_patches_flat, _query_indices_pad
+
+                            else:
+                                rest_elem = indices_arr.shape[0] - ii * nelem
+                                _indices_arr_split = indices_arr[ii*nelem: indices_arr.shape[0]]
+                                _query_indices_pad = F.pad(_indices_arr_split, (nlr2, nlr2, nlr2, nlr2))
+                                _query_patches = _query_indices_pad.unfold(2, kh, dh).unfold(3, kw, dw)
+                                _query_patches = _query_patches.permute(0, 2, 3, 1, 4, 5).contiguous()
+                                _cand_patches_split = cand_patches.unsqueeze(0).repeat(rest_elem, 1, 1, 1, 1, 1)
+                                _indices_arr_flat = _indices_arr_split.reshape(rest_elem, self.blocks_per_side ** 2, 1, 1, 1)
+                                _cand_patches_flat = _cand_patches_split.reshape(rest_elem, self.blocks_per_side ** 2, 1, nlr, nlr)
+                                _cand_patches_flat = torch.add(_indices_arr_flat, _cand_patches_flat)
+                                _cand_patches = _cand_patches_flat.reshape((rest_elem, self.blocks_per_side, self.blocks_per_side, 1, nlr, nlr))
+
+                                _score = (_query_patches == _cand_patches).view(rest_elem, -1).sum(1)
+                                _score = _score.cpu().numpy()
+                                del _query_patches, _indices_arr_split, _indices_arr_flat, _cand_patches_flat, _query_indices_pad
+
+                            if ii == 0:
+                                scores = _score
+                            else:
+                                scores = np.concatenate((scores, _score), 0)
+                            torch.cuda.empty_cache()
+                    else:
+                        # indices_arr = torch.from_numpy(np.asarray(indices_arr).
+                        #             reshape(self.ncand, 1, np.asarray(indices_arr).shape[1], np.asarray(indices_arr).shape[2])).to('cuda')
+                        kh, kw = nlr, nlr   # patch size
+                        dh, dw = 1, 1       # strides
+                        query_indices_pad = F.pad(indices_arr, (nlr2, nlr2, nlr2, nlr2))
+                        query_patches = query_indices_pad.unfold(2, kh, dh).unfold(3, kw, dw)
+                        query_patches = query_patches.permute(0, 2, 3, 1, 4, 5).contiguous()
+
+                        cand_patches = cand_patches.reshape((self.blocks_per_side, self.blocks_per_side, 1, kw, kh))
+                        cand_patches = cand_patches.unsqueeze(0).repeat(self.ncand, 1, 1, 1, 1, 1)
+
+                        indices_arr_flat = indices_arr.reshape(self.ncand, self.blocks_per_side**2, 1, 1, 1)
+                        cand_patches_flat = cand_patches.reshape(self.ncand, self.blocks_per_side**2, 1, nlr, nlr)
+                        cand_patches_flat = torch.add(indices_arr_flat, cand_patches_flat)
+                        cand_patches = cand_patches_flat.reshape((self.ncand, self.blocks_per_side, self.blocks_per_side, 1, nlr, nlr))
+
+                        query_patches = query_patches.to('cuda')
+                        cand_patches = cand_patches.to('cuda')
+                        scores = (query_patches == cand_patches).view(self.ncand, -1).sum(1)
+                        del cand_patch, query_patches, indices_arr, indices_arr_flat, cand_patches_flat, query_indices_pad
+                        torch.cuda.empty_cache()
+                        scores = scores.cpu().numpy()
+
+            # loop over candidates for stage I
             for c in range(0, self.ncand, 1):
-                 cand = candidates[c]
-                 indices_resh = indices_arr[c]
+                cand = candidates[c]
 
-                 # get score for current candidate
-                 score = self.get_score_patch(indices_resh, cand_patches, nlr)
+                if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                   score = scores[c]
+                else:
+                    query_indices = indices_arr[c]
 
-                 # exploit frame correlation
-                 wcand = self.use_frame_corr(npf, pf_arr, cand, i)
+                    # get score for current candidate
+                    score = self.get_score_patch(query_indices, cand_patches, nlr)
 
-                 # weight histogram bin taking past recognitions into account
-                 scores_hist[cand] = score * wcand
+                # exploit frame correlation
+                wcand = self.use_frame_corr(npf, pf_arr, cand, i)
 
-                 # early cut when checking for candidates if some threshold is surpassed
-                 if i > 10 and i % 10 != 0 and score * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
-                     print(mean_score, c)
-                     break
+                # weight histogram bin taking past recognitions into account
+                scores_hist[cand] = score * wcand
+
+                # if i > 10 and i % 10 != 0 and score * wcand * 100 / float(same_img_score) > mean_score + self.ecut * std_score:
+                #     print(mean_score, c)
+                #     break
 
             # select highest bin in  histogram as recognised place
             hit = np.argmax(scores_hist)
             score = np.max(scores_hist)
 
-            # uncomment this to calculate steering (used for teach & play navigation based on VPR)
+            # uncomment this to calculate steering (used for teach&play navigation based on VPR)
             # steer = self.get_hor_offset_patch(nbrs_inst, array_geom_query, array_geom_db, nlr)
-            # print(np.round(steer*100, 2), '''%''')
+#            print(np.round(steer*100, 2), '''%''')
 
             # keep track of previously recognised events
             if npf != 0:
@@ -1420,7 +2260,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     precision = tpcnt / float(tpcnt + fpcnt)
                     recall = tpcnt / float(tpcnt + fncnt)
                     f1 = 2 * precision * recall / (precision + recall)
-                    self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2))
+                    self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2))
                     output.write(str(i) + "," + fpath + "," + "-1" + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "," + str(float(self.min_thresh)) + "\n")
 
             elif np.abs(hit - int(gt[self.img_no - int(min(im_numbers))])) <= self.ftol:
@@ -1430,7 +2270,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                 precision = tpcnt / float(tpcnt + fpcnt)
                 recall = tpcnt / float(tpcnt + fncnt)
                 f1 = 2 * precision * recall / (precision + recall)
-                self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score,  np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
+                self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score,  np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
                 output.write(str(i) + "," + fpath + "," + str(hit) + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "\n")
 
             else:  # wrongly recognised (false positive)
@@ -1441,7 +2281,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                     precision = tpcnt / float(tpcnt + fpcnt)
                     recall = tpcnt / float(tpcnt + fncnt)
                     f1 = 2 * precision * recall / (precision + recall)
-                    self.printEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
+                    self.PrintEvaluation(color, i, accuracy, precision, recall, f1, fpath, score, np.round(np.mean(np.asarray(time_arr)), 2), file=recog_file, gt=gt_file)
                     output.write(str(i) + "," +  fpath + "," + str(hit) + "," + str(gt[self.img_no - int(min(im_numbers))]) + "," + str(np.round(score, 5)) + "\n")
 
             res.append((str(i), hit))
@@ -1454,44 +2294,9 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.textBrowser.append("Recognition finished")
         return accuracy, precision, recall, end0 - start0, np.round(np.mean(np.asarray(time_arr)), 2)
 
-    # horizontal offset calculation (not used)
-    def get_hor_offset_patch(self, nbrs_inst, array_geom_current, array_geom_db, nlr):
-        """Calculates the horizontal offset between query and recognized image.
-        It is used for visual servoing in navigation applications using SSM-VPR"""
-        # array_geom_db = self.vectors_local[np.where(self.image_numbers_local == hit)]
-        # train nearest neighbour
-        nbrs = nbrs_inst.fit(array_geom_current)
-        distances, indices = nbrs.kneighbors(array_geom_db)
-        indices_resh = indices.reshape((self.blocks_per_side, self.blocks_per_side))
-        eq_arr = np.zeros((self.blocks_per_side, self.blocks_per_side), bool)
-        steer_hist = np.zeros(2 * self.blocks_per_side, int)
-
-        # arange = np.arange(self.spatch ** 2).reshape((self.spatch, self.spatch)) - int((self.spatch ** 2 - 1) / 2)
-        arange = np.arange((2 * nlr + 1) ** 2).reshape(((2 * nlr + 1, 2 * nlr + 1))) - int(((2 * nlr + 1) ** 2 - 1) / 2)
-        # create array padded on the outside so that locations in near the border of the original array can be dealt with
-        # we fill it with a value of -1000 that we know never is going to match
-        indices_pad = np.pad(indices_resh, nlr, 'constant', constant_values=-1000)
-        for ci in range(nlr, indices_pad.shape[0] - nlr, 1):
-            for cj in range(nlr, indices_pad.shape[1] - nlr, 1):
-                ind_patch = indices_pad[ci - nlr: ci + nlr + 1, cj - nlr: cj + nlr + 1]
-                # eq_arr = (ind_patch == (arange + (indices_pad[ci, cj])))
-                # eq_arr[ci, cj] = False
-                match_idx = np.unravel_index(indices_resh[ci-nlr, cj-nlr], (self.blocks_per_side, self.blocks_per_side))
-                if match_idx[1] - (cj - nlr) >= 0:
-                    # steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.sum(eq_arr)
-                    steer_hist[self.blocks_per_side + (match_idx[1] - (cj - nlr))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
-                else:
-                    # steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.sum(eq_arr)
-                    steer_hist[self.blocks_per_side - (np.abs(match_idx[1] - (cj - nlr)))] += np.count_nonzero(ind_patch == (arange + (indices_pad[ci, cj])))
-
-        steer = np.argmax(steer_hist) - self.blocks_per_side
-        offset = np.round((float(steer)/self.blocks_per_side), 3)
-
-        return offset
-
 
 class Plot_PR_curves(QRunnable):
-    """Plotting of results as Precision-recall curves"""
+
     def __init__(self, frameTolLineEdit, pr_file):
         super(Plot_PR_curves, self).__init__()
         self.frameTolLineEdit = frameTolLineEdit
@@ -1612,5 +2417,6 @@ class Plot_PR_curves(QRunnable):
                 if data[i, 1] != 0:
                     auc = auc + data[i, 1]
         return auc
+
 
 
