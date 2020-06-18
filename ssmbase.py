@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ssm.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -47,7 +47,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.stage1_groupBox = QtWidgets.QGroupBox(self.centralwidget)
         self.stage1_groupBox.setEnabled(True)
-        self.stage1_groupBox.setGeometry(QtCore.QRect(30, 30, 191, 351))
+        self.stage1_groupBox.setGeometry(QtCore.QRect(30, 30, 161, 411))
         self.stage1_groupBox.setContextMenuPolicy(QtCore.Qt.DefaultContextMenu)
         self.stage1_groupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -63,10 +63,10 @@ class Ui_MainWindow(object):
 "\n"
 "")
         self.stage1_groupBox.setObjectName("stage1_groupBox")
-        self.groupBox = QtWidgets.QGroupBox(self.stage1_groupBox)
-        self.groupBox.setGeometry(QtCore.QRect(20, 35, 141, 101))
-        self.groupBox.setMaximumSize(QtCore.QSize(160, 16777215))
-        self.groupBox.setStyleSheet("QGroupBox {\n"
+        self.imageSizeGroupBox_s1 = QtWidgets.QGroupBox(self.stage1_groupBox)
+        self.imageSizeGroupBox_s1.setGeometry(QtCore.QRect(10, 30, 141, 101))
+        self.imageSizeGroupBox_s1.setMaximumSize(QtCore.QSize(160, 16777215))
+        self.imageSizeGroupBox_s1.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
 "    margin-top: 0.5em;\n"
@@ -78,29 +78,33 @@ class Ui_MainWindow(object):
 "    padding: 3 0 3 0;\n"
 "}\n"
 "")
-        self.groupBox.setObjectName("groupBox")
-        self.imageWidthLineEdit_s1 = QtWidgets.QLineEdit(self.groupBox)
-        self.imageWidthLineEdit_s1.setGeometry(QtCore.QRect(55, 30, 51, 27))
+        self.imageSizeGroupBox_s1.setObjectName("imageSizeGroupBox_s1")
+        self.imageWidthLineEdit_s1 = QtWidgets.QLineEdit(self.imageSizeGroupBox_s1)
+        self.imageWidthLineEdit_s1.setGeometry(QtCore.QRect(60, 30, 41, 27))
         self.imageWidthLineEdit_s1.setAutoFillBackground(False)
+        self.imageWidthLineEdit_s1.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.imageWidthLineEdit_s1.setReadOnly(False)
         self.imageWidthLineEdit_s1.setPlaceholderText("")
         self.imageWidthLineEdit_s1.setObjectName("imageWidthLineEdit_s1")
-        self.imageHeightLineEdit_s1 = QtWidgets.QLineEdit(self.groupBox)
-        self.imageHeightLineEdit_s1.setGeometry(QtCore.QRect(55, 65, 51, 27))
+        self.imageHeightLineEdit_s1 = QtWidgets.QLineEdit(self.imageSizeGroupBox_s1)
+        self.imageHeightLineEdit_s1.setGeometry(QtCore.QRect(60, 65, 41, 27))
+        self.imageHeightLineEdit_s1.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.imageHeightLineEdit_s1.setReadOnly(False)
         self.imageHeightLineEdit_s1.setObjectName("imageHeightLineEdit_s1")
-        self.label = QtWidgets.QLabel(self.groupBox)
+        self.label = QtWidgets.QLabel(self.imageSizeGroupBox_s1)
         self.label.setGeometry(QtCore.QRect(10, 30, 80, 30))
         self.label.setObjectName("label")
-        self.label_2 = QtWidgets.QLabel(self.groupBox)
+        self.label_2 = QtWidgets.QLabel(self.imageSizeGroupBox_s1)
         self.label_2.setGeometry(QtCore.QRect(7, 70, 66, 16))
         self.label_2.setObjectName("label_2")
-        self.label_3 = QtWidgets.QLabel(self.groupBox)
+        self.label_3 = QtWidgets.QLabel(self.imageSizeGroupBox_s1)
         self.label_3.setGeometry(QtCore.QRect(110, 30, 21, 30))
         self.label_3.setObjectName("label_3")
-        self.label_4 = QtWidgets.QLabel(self.groupBox)
+        self.label_4 = QtWidgets.QLabel(self.imageSizeGroupBox_s1)
         self.label_4.setGeometry(QtCore.QRect(110, 70, 30, 20))
         self.label_4.setObjectName("label_4")
         self.groupBox_2 = QtWidgets.QGroupBox(self.stage1_groupBox)
-        self.groupBox_2.setGeometry(QtCore.QRect(20, 160, 141, 181))
+        self.groupBox_2.setGeometry(QtCore.QRect(10, 140, 141, 151))
         self.groupBox_2.setMaximumSize(QtCore.QSize(160, 16777215))
         self.groupBox_2.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -116,16 +120,55 @@ class Ui_MainWindow(object):
 "")
         self.groupBox_2.setObjectName("groupBox_2")
         self.vggRadioButton = QtWidgets.QRadioButton(self.groupBox_2)
-        self.vggRadioButton.setGeometry(QtCore.QRect(20, 37, 115, 22))
+        self.vggRadioButton.setGeometry(QtCore.QRect(20, 30, 115, 22))
         self.vggRadioButton.setObjectName("vggRadioButton")
         self.netvladRadioButton = QtWidgets.QRadioButton(self.groupBox_2)
-        self.netvladRadioButton.setGeometry(QtCore.QRect(20, 76, 115, 22))
+        self.netvladRadioButton.setGeometry(QtCore.QRect(20, 122, 115, 20))
         self.netvladRadioButton.setObjectName("netvladRadioButton")
-        self.useGpuCheckBox = QtWidgets.QCheckBox(self.centralwidget)
-        self.useGpuCheckBox.setGeometry(QtCore.QRect(250, 690, 96, 22))
-        self.useGpuCheckBox.setObjectName("useGpuCheckBox")
+        self.resnetRadioButton = QtWidgets.QRadioButton(self.groupBox_2)
+        self.resnetRadioButton.setGeometry(QtCore.QRect(20, 60, 115, 22))
+        self.resnetRadioButton.setObjectName("resnetRadioButton")
+        self.googlenetRadioButton = QtWidgets.QRadioButton(self.groupBox_2)
+        self.googlenetRadioButton.setGeometry(QtCore.QRect(20, 90, 115, 22))
+        self.googlenetRadioButton.setObjectName("googlenetRadioButton")
+        self.groupBox_8 = QtWidgets.QGroupBox(self.stage1_groupBox)
+        self.groupBox_8.setGeometry(QtCore.QRect(10, 300, 141, 100))
+        self.groupBox_8.setMaximumSize(QtCore.QSize(160, 16777215))
+        self.groupBox_8.setStyleSheet("QGroupBox {\n"
+"    border: 1px solid gray;\n"
+"    border-radius: 9px;\n"
+"    margin-top: 0.5em;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    left: 3px;\n"
+"    padding: 3 0 3 0;\n"
+"}\n"
+"")
+        self.groupBox_8.setObjectName("groupBox_8")
+        self.pcaDimLineEdit_s1 = QtWidgets.QLineEdit(self.groupBox_8)
+        self.pcaDimLineEdit_s1.setGeometry(QtCore.QRect(80, 20, 51, 27))
+        self.pcaDimLineEdit_s1.setAutoFillBackground(False)
+        self.pcaDimLineEdit_s1.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.pcaDimLineEdit_s1.setReadOnly(False)
+        self.pcaDimLineEdit_s1.setPlaceholderText("")
+        self.pcaDimLineEdit_s1.setObjectName("pcaDimLineEdit_s1")
+        self.label_21 = QtWidgets.QLabel(self.groupBox_8)
+        self.label_21.setGeometry(QtCore.QRect(10, 20, 80, 30))
+        self.label_21.setObjectName("label_21")
+        self.label_22 = QtWidgets.QLabel(self.groupBox_8)
+        self.label_22.setGeometry(QtCore.QRect(10, 50, 80, 30))
+        self.label_22.setObjectName("label_22")
+        self.pcaSamplesLineEdit_s1 = QtWidgets.QLineEdit(self.groupBox_8)
+        self.pcaSamplesLineEdit_s1.setGeometry(QtCore.QRect(80, 50, 51, 27))
+        self.pcaSamplesLineEdit_s1.setAutoFillBackground(False)
+        self.pcaSamplesLineEdit_s1.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.pcaSamplesLineEdit_s1.setReadOnly(False)
+        self.pcaSamplesLineEdit_s1.setPlaceholderText("")
+        self.pcaSamplesLineEdit_s1.setObjectName("pcaSamplesLineEdit_s1")
         self.groupBox_3 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_3.setGeometry(QtCore.QRect(30, 410, 531, 131))
+        self.groupBox_3.setGeometry(QtCore.QRect(30, 460, 531, 131))
         self.groupBox_3.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -174,7 +217,7 @@ class Ui_MainWindow(object):
         self.groundTruthOkLabel.setText("")
         self.groundTruthOkLabel.setObjectName("groundTruthOkLabel")
         self.groupBox_4 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_4.setGeometry(QtCore.QRect(30, 570, 161, 111))
+        self.groupBox_4.setGeometry(QtCore.QRect(30, 610, 161, 111))
         self.groupBox_4.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -196,7 +239,7 @@ class Ui_MainWindow(object):
         self.btnRecognition.setGeometry(QtCore.QRect(30, 70, 91, 27))
         self.btnRecognition.setObjectName("btnRecognition")
         self.textBrowser = QtWidgets.QTextBrowser(self.centralwidget)
-        self.textBrowser.setGeometry(QtCore.QRect(590, 320, 671, 391))
+        self.textBrowser.setGeometry(QtCore.QRect(590, 320, 671, 401))
         font = QtGui.QFont()
         font.setFamily("Monospace")
         font.setPointSize(8)
@@ -260,7 +303,7 @@ class Ui_MainWindow(object):
         self.referenceImageLabel.setObjectName("referenceImageLabel")
         self.scrollArea_6.setWidget(self.scrollAreaWidgetContents_6)
         self.groupBox_5 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_5.setGeometry(QtCore.QRect(400, 570, 161, 111))
+        self.groupBox_5.setGeometry(QtCore.QRect(400, 610, 161, 111))
         self.groupBox_5.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -282,7 +325,7 @@ class Ui_MainWindow(object):
         self.btnStop.setGeometry(QtCore.QRect(30, 70, 91, 27))
         self.btnStop.setObjectName("btnStop")
         self.stage2_groupBox = QtWidgets.QGroupBox(self.centralwidget)
-        self.stage2_groupBox.setGeometry(QtCore.QRect(240, 30, 321, 351))
+        self.stage2_groupBox.setGeometry(QtCore.QRect(210, 30, 161, 411))
         self.stage2_groupBox.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -298,7 +341,7 @@ class Ui_MainWindow(object):
 "")
         self.stage2_groupBox.setObjectName("stage2_groupBox")
         self.groupBox_10 = QtWidgets.QGroupBox(self.stage2_groupBox)
-        self.groupBox_10.setGeometry(QtCore.QRect(20, 34, 141, 101))
+        self.groupBox_10.setGeometry(QtCore.QRect(10, 30, 141, 101))
         self.groupBox_10.setMaximumSize(QtCore.QSize(160, 16777215))
         self.groupBox_10.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
@@ -315,11 +358,15 @@ class Ui_MainWindow(object):
 "")
         self.groupBox_10.setObjectName("groupBox_10")
         self.imageWidthLineEdit_s2 = QtWidgets.QLineEdit(self.groupBox_10)
-        self.imageWidthLineEdit_s2.setGeometry(QtCore.QRect(55, 30, 51, 27))
+        self.imageWidthLineEdit_s2.setGeometry(QtCore.QRect(60, 29, 41, 27))
+        self.imageWidthLineEdit_s2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.imageWidthLineEdit_s2.setReadOnly(False)
         self.imageWidthLineEdit_s2.setPlaceholderText("")
         self.imageWidthLineEdit_s2.setObjectName("imageWidthLineEdit_s2")
         self.imageHeightLineEdit_s2 = QtWidgets.QLineEdit(self.groupBox_10)
-        self.imageHeightLineEdit_s2.setGeometry(QtCore.QRect(55, 63, 51, 30))
+        self.imageHeightLineEdit_s2.setGeometry(QtCore.QRect(60, 63, 41, 30))
+        self.imageHeightLineEdit_s2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.imageHeightLineEdit_s2.setReadOnly(False)
         self.imageHeightLineEdit_s2.setObjectName("imageHeightLineEdit_s2")
         self.label_8 = QtWidgets.QLabel(self.groupBox_10)
         self.label_8.setGeometry(QtCore.QRect(10, 30, 80, 30))
@@ -333,9 +380,10 @@ class Ui_MainWindow(object):
         self.label_13 = QtWidgets.QLabel(self.groupBox_10)
         self.label_13.setGeometry(QtCore.QRect(110, 66, 30, 31))
         self.label_13.setObjectName("label_13")
-        self.groupBox_12 = QtWidgets.QGroupBox(self.stage2_groupBox)
-        self.groupBox_12.setGeometry(QtCore.QRect(20, 160, 271, 181))
-        self.groupBox_12.setStyleSheet("QGroupBox {\n"
+        self.groupBox_9 = QtWidgets.QGroupBox(self.stage2_groupBox)
+        self.groupBox_9.setGeometry(QtCore.QRect(10, 140, 141, 151))
+        self.groupBox_9.setMaximumSize(QtCore.QSize(160, 16777215))
+        self.groupBox_9.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
 "    margin-top: 0.5em;\n"
@@ -347,43 +395,54 @@ class Ui_MainWindow(object):
 "    padding: 3 0 3 0;\n"
 "}\n"
 "")
-        self.groupBox_12.setObjectName("groupBox_12")
-        self.label_17 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_17.setGeometry(QtCore.QRect(10, 70, 71, 30))
-        self.label_17.setObjectName("label_17")
-        self.frameTolLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.frameTolLineEdit.setGeometry(QtCore.QRect(90, 70, 41, 27))
-        self.frameTolLineEdit.setObjectName("frameTolLineEdit")
-        self.candidatesLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.candidatesLineEdit.setGeometry(QtCore.QRect(90, 31, 41, 27))
-        self.candidatesLineEdit.setObjectName("candidatesLineEdit")
-        self.label_18 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_18.setGeometry(QtCore.QRect(10, 31, 81, 30))
-        self.label_18.setObjectName("label_18")
-        self.prevFramesLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.prevFramesLineEdit.setGeometry(QtCore.QRect(90, 149, 41, 27))
-        self.prevFramesLineEdit.setObjectName("prevFramesLineEdit")
-        self.label_5 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_5.setGeometry(QtCore.QRect(10, 149, 21, 31))
-        self.label_5.setText("FC")
-        self.label_5.setObjectName("label_5")
-        self.label_6 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_6.setGeometry(QtCore.QRect(140, 150, 61, 31))
-        self.label_6.setText("frames ")
-        self.label_6.setObjectName("label_6")
-        self.label_7 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_7.setGeometry(QtCore.QRect(12, 110, 61, 31))
-        self.label_7.setText("Early cut")
-        self.label_7.setObjectName("label_7")
-        self.earlyCutLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
-        self.earlyCutLineEdit.setGeometry(QtCore.QRect(90, 110, 41, 27))
-        self.earlyCutLineEdit.setObjectName("earlyCutLineEdit")
-        self.label_11 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_11.setGeometry(QtCore.QRect(140, 110, 61, 31))
-        self.label_11.setText("sigma")
-        self.label_11.setObjectName("label_11")
+        self.groupBox_9.setObjectName("groupBox_9")
+        self.vggRadioButton_s2 = QtWidgets.QRadioButton(self.groupBox_9)
+        self.vggRadioButton_s2.setGeometry(QtCore.QRect(20, 30, 115, 22))
+        self.vggRadioButton_s2.setObjectName("vggRadioButton_s2")
+        self.resnetRadioButton_s2 = QtWidgets.QRadioButton(self.groupBox_9)
+        self.resnetRadioButton_s2.setGeometry(QtCore.QRect(20, 60, 115, 22))
+        self.resnetRadioButton_s2.setObjectName("resnetRadioButton_s2")
+        self.googlenetRadioButton_s2 = QtWidgets.QRadioButton(self.groupBox_9)
+        self.googlenetRadioButton_s2.setGeometry(QtCore.QRect(20, 90, 115, 22))
+        self.googlenetRadioButton_s2.setObjectName("googlenetRadioButton_s2")
+        self.groupBox_11 = QtWidgets.QGroupBox(self.stage2_groupBox)
+        self.groupBox_11.setGeometry(QtCore.QRect(10, 300, 141, 100))
+        self.groupBox_11.setMaximumSize(QtCore.QSize(160, 16777215))
+        self.groupBox_11.setStyleSheet("QGroupBox {\n"
+"    border: 1px solid gray;\n"
+"    border-radius: 9px;\n"
+"    margin-top: 0.5em;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    left: 3px;\n"
+"    padding: 3 0 3 0;\n"
+"}\n"
+"")
+        self.groupBox_11.setObjectName("groupBox_11")
+        self.pcaDimLineEdit_s2 = QtWidgets.QLineEdit(self.groupBox_11)
+        self.pcaDimLineEdit_s2.setGeometry(QtCore.QRect(80, 20, 51, 27))
+        self.pcaDimLineEdit_s2.setAutoFillBackground(False)
+        self.pcaDimLineEdit_s2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.pcaDimLineEdit_s2.setReadOnly(False)
+        self.pcaDimLineEdit_s2.setPlaceholderText("")
+        self.pcaDimLineEdit_s2.setObjectName("pcaDimLineEdit_s2")
+        self.label_23 = QtWidgets.QLabel(self.groupBox_11)
+        self.label_23.setGeometry(QtCore.QRect(10, 20, 80, 30))
+        self.label_23.setObjectName("label_23")
+        self.label_24 = QtWidgets.QLabel(self.groupBox_11)
+        self.label_24.setGeometry(QtCore.QRect(10, 50, 80, 30))
+        self.label_24.setObjectName("label_24")
+        self.pcaSamplesLineEdit_s2 = QtWidgets.QLineEdit(self.groupBox_11)
+        self.pcaSamplesLineEdit_s2.setGeometry(QtCore.QRect(80, 50, 51, 27))
+        self.pcaSamplesLineEdit_s2.setAutoFillBackground(False)
+        self.pcaSamplesLineEdit_s2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.pcaSamplesLineEdit_s2.setReadOnly(False)
+        self.pcaSamplesLineEdit_s2.setPlaceholderText("")
+        self.pcaSamplesLineEdit_s2.setObjectName("pcaSamplesLineEdit_s2")
         self.groupBox_6 = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_6.setGeometry(QtCore.QRect(220, 570, 161, 111))
+        self.groupBox_6.setGeometry(QtCore.QRect(220, 610, 161, 111))
         self.groupBox_6.setStyleSheet("QGroupBox {\n"
 "    border: 1px solid gray;\n"
 "    border-radius: 9px;\n"
@@ -404,6 +463,72 @@ class Ui_MainWindow(object):
         self.btnPRcurves = QtWidgets.QPushButton(self.groupBox_6)
         self.btnPRcurves.setGeometry(QtCore.QRect(30, 70, 91, 27))
         self.btnPRcurves.setObjectName("btnPRcurves")
+        self.groupBox_12 = QtWidgets.QGroupBox(self.centralwidget)
+        self.groupBox_12.setGeometry(QtCore.QRect(390, 30, 171, 151))
+        self.groupBox_12.setStyleSheet("QGroupBox {\n"
+"    border: 1px solid gray;\n"
+"    border-radius: 9px;\n"
+"    margin-top: 0.5em;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    left: 3px;\n"
+"    padding: 3 0 3 0;\n"
+"}\n"
+"")
+        self.groupBox_12.setObjectName("groupBox_12")
+        self.label_17 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_17.setGeometry(QtCore.QRect(10, 65, 111, 30))
+        self.label_17.setObjectName("label_17")
+        self.frameTolLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
+        self.frameTolLineEdit.setGeometry(QtCore.QRect(125, 65, 38, 27))
+        self.frameTolLineEdit.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.frameTolLineEdit.setObjectName("frameTolLineEdit")
+        self.candidatesLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
+        self.candidatesLineEdit.setGeometry(QtCore.QRect(125, 31, 38, 27))
+        self.candidatesLineEdit.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.candidatesLineEdit.setObjectName("candidatesLineEdit")
+        self.label_18 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_18.setGeometry(QtCore.QRect(10, 32, 81, 30))
+        self.label_18.setObjectName("label_18")
+        self.prevFramesLineEdit = QtWidgets.QLineEdit(self.groupBox_12)
+        self.prevFramesLineEdit.setGeometry(QtCore.QRect(125, 100, 38, 27))
+        self.prevFramesLineEdit.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.prevFramesLineEdit.setObjectName("prevFramesLineEdit")
+        self.label_5 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_5.setGeometry(QtCore.QRect(10, 100, 111, 31))
+        self.label_5.setText("Frame corr. (FC)")
+        self.label_5.setObjectName("label_5")
+        self.gpuGroupBox = QtWidgets.QGroupBox(self.centralwidget)
+        self.gpuGroupBox.setGeometry(QtCore.QRect(390, 280, 171, 161))
+        self.gpuGroupBox.setStyleSheet("QGroupBox {\n"
+"    border: 1px solid gray;\n"
+"    border-radius: 9px;\n"
+"    margin-top: 0.5em;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    left: 3px;\n"
+"    padding: 3 0 3 0;\n"
+"}\n"
+"")
+        self.gpuGroupBox.setObjectName("gpuGroupBox")
+        self.label_12 = QtWidgets.QLabel(self.gpuGroupBox)
+        self.label_12.setGeometry(QtCore.QRect(10, 80, 111, 31))
+        self.label_12.setText("Max. candidates ")
+        self.label_12.setObjectName("label_12")
+        self.gpuCandLineEdit = QtWidgets.QLineEdit(self.gpuGroupBox)
+        self.gpuCandLineEdit.setGeometry(QtCore.QRect(125, 80, 38, 27))
+        self.gpuCandLineEdit.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.gpuCandLineEdit.setObjectName("gpuCandLineEdit")
+        self.loadDbOnGpuCheckBox = QtWidgets.QCheckBox(self.gpuGroupBox)
+        self.loadDbOnGpuCheckBox.setGeometry(QtCore.QRect(10, 40, 141, 22))
+        self.loadDbOnGpuCheckBox.setObjectName("loadDbOnGpuCheckBox")
+        self.useGpuCheckBox = QtWidgets.QCheckBox(self.centralwidget)
+        self.useGpuCheckBox.setGeometry(QtCore.QRect(390, 250, 96, 22))
+        self.useGpuCheckBox.setObjectName("useGpuCheckBox")
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -435,8 +560,8 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "Visual Place Recognition  interface"))
         self.groupBox_7.setTitle(_translate("MainWindow", "Console"))
         self.queryGroupBox.setTitle(_translate("MainWindow", "Query"))
-        self.stage1_groupBox.setTitle(_translate("MainWindow", "STAGE I (image filtering)"))
-        self.groupBox.setTitle(_translate("MainWindow", "Image size"))
+        self.stage1_groupBox.setTitle(_translate("MainWindow", "STAGE I "))
+        self.imageSizeGroupBox_s1.setTitle(_translate("MainWindow", "Image size"))
         self.imageWidthLineEdit_s1.setText(_translate("MainWindow", "224"))
         self.imageHeightLineEdit_s1.setText(_translate("MainWindow", "224"))
         self.label.setText(_translate("MainWindow", "Width"))
@@ -446,7 +571,13 @@ class Ui_MainWindow(object):
         self.groupBox_2.setTitle(_translate("MainWindow", "Method"))
         self.vggRadioButton.setText(_translate("MainWindow", "VGG16"))
         self.netvladRadioButton.setText(_translate("MainWindow", "NetVLAD"))
-        self.useGpuCheckBox.setText(_translate("MainWindow", "Use GPU"))
+        self.resnetRadioButton.setText(_translate("MainWindow", "ResNet"))
+        self.googlenetRadioButton.setText(_translate("MainWindow", "GoogLeNet"))
+        self.groupBox_8.setTitle(_translate("MainWindow", "PCA"))
+        self.pcaDimLineEdit_s1.setText(_translate("MainWindow", "125"))
+        self.label_21.setText(_translate("MainWindow", "Dim."))
+        self.label_22.setText(_translate("MainWindow", "Samples"))
+        self.pcaSamplesLineEdit_s1.setText(_translate("MainWindow", "10000"))
         self.groupBox_3.setTitle(_translate("MainWindow", "Select files"))
         self.btnLoadReference.setText(_translate("MainWindow", "Reference dir"))
         self.btnLoadTest.setText(_translate("MainWindow", "Test dir"))
@@ -464,24 +595,36 @@ class Ui_MainWindow(object):
         self.groupBox_5.setTitle(_translate("MainWindow", "Controls"))
         self.btnPause.setText(_translate("MainWindow", "Pause"))
         self.btnStop.setText(_translate("MainWindow", "Stop"))
-        self.stage2_groupBox.setTitle(_translate("MainWindow", "STAGE II (spatial matching)"))
+        self.stage2_groupBox.setTitle(_translate("MainWindow", "STAGE II "))
         self.groupBox_10.setTitle(_translate("MainWindow", "Image size"))
-        self.imageWidthLineEdit_s2.setText(_translate("MainWindow", "416"))
-        self.imageHeightLineEdit_s2.setText(_translate("MainWindow", "416"))
+        self.imageWidthLineEdit_s2.setText(_translate("MainWindow", "224"))
+        self.imageHeightLineEdit_s2.setText(_translate("MainWindow", "224"))
         self.label_8.setText(_translate("MainWindow", "Width"))
         self.label_9.setText(_translate("MainWindow", "Height"))
         self.label_10.setText(_translate("MainWindow", "px"))
         self.label_13.setText(_translate("MainWindow", "px"))
-        self.groupBox_12.setTitle(_translate("MainWindow", "Parameters"))
+        self.groupBox_9.setTitle(_translate("MainWindow", "Method"))
+        self.vggRadioButton_s2.setText(_translate("MainWindow", "VGG16"))
+        self.resnetRadioButton_s2.setText(_translate("MainWindow", "ResNet"))
+        self.googlenetRadioButton_s2.setText(_translate("MainWindow", "GoogLeNet"))
+        self.groupBox_11.setTitle(_translate("MainWindow", "PCA"))
+        self.pcaDimLineEdit_s2.setText(_translate("MainWindow", "100"))
+        self.label_23.setText(_translate("MainWindow", "Dim."))
+        self.label_24.setText(_translate("MainWindow", "Samples"))
+        self.pcaSamplesLineEdit_s2.setText(_translate("MainWindow", "10000"))
+        self.groupBox_6.setTitle(_translate("MainWindow", "Output"))
+        self.btnSaveOutput.setText(_translate("MainWindow", "Save "))
+        self.btnPRcurves.setText(_translate("MainWindow", "PR curves"))
+        self.groupBox_12.setTitle(_translate("MainWindow", "Hyperparameters"))
         self.label_17.setText(_translate("MainWindow", "Frame tol."))
         self.frameTolLineEdit.setText(_translate("MainWindow", "2"))
         self.candidatesLineEdit.setText(_translate("MainWindow", "50"))
         self.label_18.setText(_translate("MainWindow", "Candidates"))
         self.prevFramesLineEdit.setText(_translate("MainWindow", "2"))
-        self.earlyCutLineEdit.setText(_translate("MainWindow", "10"))
-        self.groupBox_6.setTitle(_translate("MainWindow", "Output"))
-        self.btnSaveOutput.setText(_translate("MainWindow", "Save "))
-        self.btnPRcurves.setText(_translate("MainWindow", "PR curves"))
+        self.gpuGroupBox.setTitle(_translate("MainWindow", "GPU Options"))
+        self.gpuCandLineEdit.setText(_translate("MainWindow", "2"))
+        self.loadDbOnGpuCheckBox.setText(_translate("MainWindow", "Load DB on GPU"))
+        self.useGpuCheckBox.setText(_translate("MainWindow", "Use GPU"))
         self.menuAbout.setTitle(_translate("MainWindow", "Help"))
         self.actionOpen.setText(_translate("MainWindow", "Open Video"))
         self.actionSpectrogram.setText(_translate("MainWindow", "Spectrogram"))

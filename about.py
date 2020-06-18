@@ -8,7 +8,7 @@ class AboutForm(QDialog):
      self.ui = aboutbase.Ui_Dialog()
      self.ui.setupUi(self)
      self.ui.buttonBox.accepted.connect(self.okButtonClicked)
-     self.setWindowTitle("MESG - About")
+     self.setWindowTitle("SSM-VPR - About")
      self.groupToAdd = None
 
   def okButtonClicked(self):
