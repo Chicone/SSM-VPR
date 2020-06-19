@@ -1641,7 +1641,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                                     map_location=lambda storage, loc: storage)
             model.load_state_dict(checkpoint['state_dict'], strict=False)
             model_netvlad = netvlad_model.EmbedNet(model)
-            model_netvlad = model_netvlad.cuda()
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                model_netvlad = model_netvlad.cuda()
             return model_netvlad
 
         elif method == 'ResNet':
