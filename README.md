@@ -37,7 +37,7 @@ The functionality of the different panels in the GUI are as follows:
 ## Installation
 The code has been tested on Ubuntu 18.04 Bionic, Python 3.6.6,  Torch 1.5.0 and Cuda 10.2.
 For installation, just clone or download the project into your computer. Installation of the following libraries and possibly others may be necessary:    
-  __csv, cv2, matplotlib, numpy, PyQt5, PIL, random, shutil, skimage, sklearn,  tkinter, time, torch, torchvision__ 
+  __csv, cv2, matplotlib, numpy, PyQt5, PIL, random, shutil, scikit-image, sklearn,  tkinter, time, torch, torchvision__ 
 
 To start the GUI, cd from the command line into the project's main directory and type 
 ```bash
