@@ -1,10 +1,8 @@
 #import simpler as signalgen
 import ssm
 import sys
-from PySide2 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSplashScreen
 from PyQt5.QtGui import QIcon, QPixmap
-#from PyQt4 import QtCore, QtGui
 
 import time
 

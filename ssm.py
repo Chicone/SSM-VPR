@@ -1,5 +1,4 @@
 import cv2
-# from matplotlib.tests.test_category import ax
 import ssmbase
 import glob
 from PyQt5.QtWidgets import QApplication, QMessageBox
@@ -9,10 +8,6 @@ from sklearn.decomposition import PCA
 import sklearn.preprocessing as pp
 from sklearn.neighbors import NearestNeighbors
 import random
-from keras.applications.resnet50 import preprocess_input
-from keras import backend as K
-import tensorflow as tf
-import netvlad_tf.nets as nets
 import csv
 import time
 import about
@@ -29,8 +24,6 @@ from PIL import Image
 from sklearn.feature_extraction import image
 import netvlad_model
 import skimage.measure
-from netvlad_model import NetVLAD
-from netvlad_model import EmbedNet
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -624,13 +617,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
 
         return descrip_array, im_numbers
 
-    def prepare_img(self, fpath, image_size):
-        im = cv2.imread(fpath)
-        img_data = cv2.resize(im, image_size, interpolation=cv2.INTER_CUBIC)
-        img_data = np.expand_dims(img_data, axis=0)
-        img_data = preprocess_input(img_data)
-        return img_data
-
     def get_img_no(self, fname):
         """gets the right image number from image filename"""
         img_no = int(''.join(map(str, [int(s) for s in os.path.splitext(fname)[0] if s.isdigit()])))
@@ -738,14 +724,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         base_model = torch.nn.Sequential(*layers)
         net_vlad = netvlad_model.NetVLAD(num_clusters=num_clusters, dim=base_model_dim, vladv2=vladv2)
 
-        # model = torch.nn.Module()
-        # model.add_module('encoder', encoder)
-        # net_vlad = netvlad_pth.NetVLAD(num_clusters=num_clusters, dim=encoder_dim, vladv2=vladv2)
-        # model.add_module('pool', net_vlad)
-
-#        checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/vgg16_netvlad_checkpoint/checkpoints/checkpoint.pth.tar',
-#                                map_location=lambda storage, loc: storage)
-#        model.load_state_dict(checkpoint['state_dict'], strict=False)
         return base_model, net_vlad
 
 
@@ -1659,7 +1637,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             model = torch.nn.Module()
             model.add_module('encoder', base_model)
             model.add_module('pool', net_vlad)
-            checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/netvlad_checkpoint.pth.tar',
+            checkpoint = torch.load('./checkpoints/netvlad_checkpoint.pth.tar',
                                     map_location=lambda storage, loc: storage)
             model.load_state_dict(checkpoint['state_dict'], strict=False)
             model_netvlad = netvlad_model.EmbedNet(model)
