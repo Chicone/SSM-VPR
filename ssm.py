@@ -724,14 +724,6 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         base_model = torch.nn.Sequential(*layers)
         net_vlad = netvlad_model.NetVLAD(num_clusters=num_clusters, dim=base_model_dim, vladv2=vladv2)
 
-        # model = torch.nn.Module()
-        # model.add_module('encoder', encoder)
-        # net_vlad = netvlad_pth.NetVLAD(num_clusters=num_clusters, dim=encoder_dim, vladv2=vladv2)
-        # model.add_module('pool', net_vlad)
-
-#        checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/vgg16_netvlad_checkpoint/checkpoints/checkpoint.pth.tar',
-#                                map_location=lambda storage, loc: storage)
-#        model.load_state_dict(checkpoint['state_dict'], strict=False)
         return base_model, net_vlad
 
 
@@ -1645,7 +1637,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
             model = torch.nn.Module()
             model.add_module('encoder', base_model)
             model.add_module('pool', net_vlad)
-            checkpoint = torch.load('/home/luis/PycharmProjects/ssm-ui/checkpoints/netvlad_checkpoint.pth.tar',
+            checkpoint = torch.load('./checkpoints/netvlad_checkpoint.pth.tar',
                                     map_location=lambda storage, loc: storage)
             model.load_state_dict(checkpoint['state_dict'], strict=False)
             model_netvlad = netvlad_model.EmbedNet(model)

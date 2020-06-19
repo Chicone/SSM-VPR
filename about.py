@@ -1,5 +1,4 @@
 import aboutbase
-from PySide2 import QtCore, QtGui
 from PyQt5.QtWidgets import QDialog
 
 class AboutForm(QDialog):
