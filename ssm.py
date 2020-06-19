@@ -147,13 +147,13 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         self.btnLoadTest.clicked.connect(self.search_for_dir_path_query)
         self.btnLoadGroungTruth.clicked.connect(self.search_for_file_path_ground_truth)
 
-        # hardcoded for quick testing
-        self.reference_folder = "/data/Datasets/Kudamm_icra/Reference"
-        self.refOkLabel.setText(self.reference_folder)
-        self.test_folder = "/data/Datasets/Kudamm_icra/Live"
-        self.testOkLabel.setText(self.test_folder)
-        self.ground_truth_file = os.path.dirname(self.test_folder) + '/GroundTruth.csv'
-        self.groundTruthOkLabel.setText(self.ground_truth_file)
+        ## hardcoded for quick testing
+        #self.reference_folder = "/data/Datasets/Kudamm_icra/Reference"
+        #self.refOkLabel.setText(self.reference_folder)
+        #self.test_folder = "/data/Datasets/Kudamm_icra/Live"
+        #self.testOkLabel.setText(self.test_folder)
+        #self.ground_truth_file = os.path.dirname(self.test_folder) + '/GroundTruth.csv'
+        #self.groundTruthOkLabel.setText(self.ground_truth_file)
 
         # run
         self.btnCreateDB.clicked.connect(self.create_database)
