@@ -1700,7 +1700,7 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         msg.setWindowTitle(title)
         msg.exec_()
 
-        def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg):
+    def get_query_geom_descrip(self, arr_size, vectors_query, hg, wg):
         """
         Calculate spatially-aware descriptors for query image
 
