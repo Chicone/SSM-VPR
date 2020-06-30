@@ -1641,7 +1641,8 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
                                     map_location=lambda storage, loc: storage)
             model.load_state_dict(checkpoint['state_dict'], strict=False)
             model_netvlad = netvlad_model.EmbedNet(model)
-            model_netvlad = model_netvlad.cuda()
+            if torch.cuda.is_available() and self.useGpuCheckBox.isChecked():
+                model_netvlad = model_netvlad.cuda()
             return model_netvlad
 
         elif method == 'ResNet':
@@ -1714,19 +1715,28 @@ class ssm_MainWindow(ssmbase.Ui_MainWindow):
         -------
         array_geom_query: Array of descriptors
         """
-
         self.channels_geom = np.arange(vectors_query.shape[2])
-        cnt = 0
-        array_geom_query = np.zeros((arr_size, 3, 3, len(self.channels_geom)))
-        for cgii in range(self.sblk, hg - self.sblk, 1):
-            for cgjj in range(self.sblk, wg - self.sblk, 1):
-                if cnt == arr_size:
-                    break
-                center = (cgii, cgjj)
-                block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
-                array_geom_query[cnt] = block_geom_query
-                cnt += 1
+
+        # start = time.time()
+
+        array_geom_query = image.extract_patches_2d(vectors_query, (2*self.sblk+1, 2*self.sblk+1))
         array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 3 * 3 * len(self.channels_geom)))
+
+        # end = time.time()
+        # print(end - start)
+
+        # cnt = 0
+        # array_geom_query = np.zeros((arr_size, 3, 3, len(self.channels_geom)))
+        # for cgii in range(self.sblk, hg - self.sblk, 1):
+        #     for cgjj in range(self.sblk, wg - self.sblk, 1):
+        #         if cnt == arr_size:
+        #             break
+        #         center = (cgii, cgjj)
+        #         block_geom_query = vectors_query[center[0] - self.sblk: center[0] + self.sblk + 1, center[1] - self.sblk: center[1] + self.sblk + 1]  # [:, :, 1:]
+        #         array_geom_query[cnt] = block_geom_query
+        #         cnt += 1
+        # array_geom_query = self.pca_geom.transform(array_geom_query.reshape(arr_size, 3 * 3 * len(self.channels_geom)))
+
         return array_geom_query
 
     def use_frame_corr(self, npf, pf_arr, cand, i):
