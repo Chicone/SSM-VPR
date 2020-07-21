@@ -75,7 +75,7 @@ The format of any used dataset must meet the requirements explained in the __Fil
 
 ## Citation
 
-Please consider citing the corresponding publication if you use this work:
+Please consider citing the following publication if you use the GUI or any part of the provided code:
 ```
 @article{camara2020spatialmatching,
   title={Visual Place Recognition by Spatial Matching of High-level CNN Features},
