@@ -80,11 +80,12 @@ Please consider citing the following publication if you use the GUI or any part 
 @article{camara2020spatialmatching,
   title={Visual Place Recognition by Spatial Matching of High-level CNN Features},
   author={Camara, Luis G.  and  P\v{r}eu\v{c}il, Libor},
-  journal={Robotics and Autonomous Systems, accepted for publication},
-  volume={},
+  journal={Robotics and Autonomous Systems},
+  volume={133},
   number={},
-  pages={},
+  pages={103625},
   year={2020},
   publisher={Elsevier}
 }
+
 ```
