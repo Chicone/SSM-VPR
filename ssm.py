@@ -2340,8 +2340,8 @@ class Plot_PR_curves(QRunnable):
                 for row in csv_reader:
                     data.append(row)
 
-                min_thresh = np.round(float(min(np.asarray(data)[:, 4])), 1)
-                max_thresh = np.round(float(max(np.asarray(data)[:, 4])), 1)
+                min_thresh = np.round(float(min(np.asarray(data)[:, 4].astype(float))), 1)
+                max_thresh = np.round(float(max(np.asarray(data)[:, 4].astype(float))), 1)
 
                 pr_data = []
                 for mthresh in np.arange(min_thresh, max_thresh, 0.05):
